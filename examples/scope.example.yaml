@@ -1,0 +1,18 @@
+# Copy this file to auth/scope.yaml and edit for your authorized engagement.
+# ORACLE will refuse to run any mission without a valid scope file.
+
+engagement: "lab-baseline"
+authorized_by: "Your Name"
+authorization_date: "YYYY-MM-DD"
+
+targets:
+  - host: "192.168.56.10"        # example: isolated lab VM
+    ports: "1-65535"
+
+exclusions:
+  - "192.168.56.1"               # example: gateway, do not touch
+
+notes: >
+  Describe the authorization context here: engagement letter reference,
+  environment (isolated lab / internal red team / CTF), and any special
+  constraints or rate limits agreed with the system owner.

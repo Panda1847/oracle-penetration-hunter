@@ -15,3 +15,13 @@ flask-socketio>=5.3
 # Dev / testing
 pytest>=7.4
 pytest-cov>=4.1
+# Core dependencies for ORACLE Penetration Hunter
+# NOTE: Replace/merge with your actual dependency list from the existing project —
+# this is a starting scaffold, not a substitute for your real requirements.
+click>=8.1
+pyyaml>=6.0
+rich>=13.7
+requests>=2.31
+pydantic>=2.6
+networkx>=3.2      # evidence graph
+jinja2>=3.1        # report templating

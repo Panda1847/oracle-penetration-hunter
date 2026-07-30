@@ -42,3 +42,27 @@ runtime-go/vendor/
 # OS
 .DS_Store
 Thumbs.db
+.venv/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+# Environment / secrets — NEVER commit real credentials or scope files
+.env.*
+*.pem
+*.key
+secrets/
+auth/scope.yaml
+!auth/scope.example.yaml
+# ORACLE mission data — engagement evidence should not be committed
+missions/
+evidence/
+reports/*.pdf
+reports/*.html
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+# Docker
+*.log

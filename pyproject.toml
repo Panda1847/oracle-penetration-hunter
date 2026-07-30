@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oracle-penetration-hunter"
+version = "4.0.0"
+description = "AI-assisted mission orchestration for authorized red team operations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Michael Lastovich (Panda1847)", email = "TODO@example.com" }
+]
+keywords = [
+    "penetration-testing",
+    "red-team",
+    "security-automation",
+    "reconnaissance",
+    "vulnerability-scanning",
+    "ai-security"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "rich>=13.7",
+    "requests>=2.31",
+    "pydantic>=2.6",
+    "networkx>=3.2",
+    "jinja2>=3.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/Panda1847/oracle-penetration-hunter"
+Documentation = "https://github.com/Panda1847/oracle-penetration-hunter/tree/main/docs"
+Issues = "https://github.com/Panda1847/oracle-penetration-hunter/issues"
+
+[project.scripts]
+oracle = "oracle.core.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

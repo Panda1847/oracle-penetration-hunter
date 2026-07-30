@@ -1,23 +1,32 @@
 ---
-name: Bug report
-about: Report something that isn't working as expected
+name: Bug Report
+about: Report a problem with ORACLE Penetration Hunter
+title: "[BUG] "
 labels: bug
+assignees: ''
 ---
 
 **Describe the bug**
-A clear description of what went wrong.
+A clear, concise description of what the bug is.
 
-**To reproduce**
-Command(s) run and minimal config needed to reproduce.
+**To Reproduce**
+Steps to reproduce the behavior:
+1. Run `oracle ...`
+2. With config/scope '...'
+3. See error
 
 **Expected behavior**
-What you expected to happen instead.
+What you expected to happen.
+
+**Actual behavior**
+What actually happened. Include full error output/stack trace if available.
 
 **Environment**
-- OS:
-- Python version:
-- Go version (if runtime-go related):
-- `oracle --version` output:
+- OS: [e.g. Kali Linux 2026.1]
+- Python version: [e.g. 3.11.9]
+- ORACLE version: [e.g. 4.0.0 — run `oracle --version`]
+- Installation method: [pip / docker / manual]
 
-**Logs / traceback**
-Paste relevant output (redact any target IPs/hostnames from your scope).
+**Additional context**
+Add any other context, logs, or screenshots. **Please redact any real target
+IP addresses, hostnames, or credentials before posting.**

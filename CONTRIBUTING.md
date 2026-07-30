@@ -1,49 +1,58 @@
-# Contributing to ORACLE
+# Contributing to ORACLE Penetration Hunter
 
-Thanks for considering a contribution. This project takes the
-scope-guard/policy layer seriously — please read the note at the bottom
-before opening a plugin PR.
+First off — thanks for considering a contribution. ORACLE gets better because
+red teamers and researchers bring in the edge cases a solo maintainer never
+sees.
 
-## Getting set up
+## Ways to Contribute
+
+- 🐛 **Bug reports** — Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md)
+- 💡 **Feature requests** — Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
+- 🔧 **New reconnaissance / scanning modules** — See `oracle/reconnaissance/` and `oracle/scanning/` for the module interface
+- 📖 **Documentation** — Docs live in `docs/`; typo fixes and clarity improvements are always welcome
+- 🧪 **Tests** — See `tests/`; new modules should ship with test coverage
+
+## Development Setup
 
 ```bash
-python3 -m pip install -r requirements-dev.txt
-python3 -m pip install -e .
-cd runtime-go && go mod download && cd ..
-make ci
+git clone https://github.com/Panda1847/oracle-penetration-hunter.git
+cd oracle-penetration-hunter
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt   # linting/test tooling
 ```
 
-`make ci` should be green before you branch and green again before you
-open a PR.
+## Before You Submit a Pull Request
 
-## Workflow
+1. **Open an issue first** for anything non-trivial, so we can align on
+   approach before you invest time.
+2. **Write tests** for new functionality where applicable.
+3. **Run the linter and test suite locally:**
+   ```bash
+   ruff check .
+   pytest
+   ```
+4. **Keep PRs focused.** One feature or fix per PR is much easier to review
+   and merge than a large batch of unrelated changes.
+5. **Describe the "why," not just the "what,"** in your PR description.
 
-1. Fork, branch off `main`.
-2. Keep PRs focused — one feature/fix per PR is much easier to review
-   than a bundle.
-3. Add or update tests under `tests/unit`, `tests/integration`, or
-   `tests/replay` for any behavior change.
-4. Run `make ci` locally.
-5. Open a PR describing *what* changed and *why*. Link any related issue.
+## Module Contribution Guidelines
 
-## Adding a plugin
+New reconnaissance, scanning, or reporting modules should:
 
-Plugins are manifest-driven — see [`docs/plugin_sdk.md`](docs/plugin_sdk.md)
-for the interface. New plugins must:
+- Respect the scope-enforcement layer in `oracle/core` — no module should
+  bypass scope checks directly.
+- Log findings into the evidence graph rather than printing directly to
+  stdout only.
+- Include a short module-level docstring describing what it does and any
+  external dependencies (tools, API keys, etc.) it requires.
 
-- Declare a manifest (`manifest.yaml`) with an explicit risk level.
-- Go through the existing scope guard / policy engine like every other
-  action — do not bypass it, even for "read-only" plugins.
-- Ship a `tests.py` alongside the plugin covering at least parse-success
-  and parse-failure cases.
+## Code of Conduct
 
-## Code style
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Please read
+it before participating.
 
-- Python: `black` + `isort` (both in `requirements-dev.txt`).
-- Go: standard `gofmt`.
-- Type hints on new/changed Python functions where practical.
+## Questions?
 
-## Reporting bugs / requesting features
-
-Use the issue templates. For anything security-sensitive, see
-[`SECURITY.md`](.github/SECURITY.md) instead of opening a public issue.
+Open a [Discussion](../../discussions) or an issue tagged `question`.
