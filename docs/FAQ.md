@@ -24,7 +24,7 @@ lab-first / local AI integration setup.]`
 **What platforms are supported?**
 Primary development and testing target is Kali Linux. It should run on any
 modern Linux distribution or macOS with Python 3.11+. Windows support is
-`Currently in Beta v3.2.0.`.
+`Currently in Beta v4.0.0.`.
 
 **How is this different from just writing my own scripts?**
 Scope enforcement and the evidence graph are the core value — most

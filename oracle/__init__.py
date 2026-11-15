@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-__version__ = "3.2.0"
+__version__ = "4.0.0"
 __schema_version__ = "oracle-delivery.v1"
 
 
@@ -17,17 +17,34 @@ def _detect_git_hash() -> str:
         return env_hash
     try:
         root = Path(__file__).resolve().parents[1]
+        # -c safe.directory=* avoids git's "dubious ownership" refusal, which
+        # fires whenever the process UID doesn't own the working tree — the
+        # common case in containers, VMs, and synced/mounted dev folders
+        # (root running against a host-owned checkout, etc). Without this,
+        # git exits non-zero and the build badge silently shows "unknown"
+        # even though a perfectly good git history is sitting right there.
         proc = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
+            ["git", "-c", "safe.directory=*", "rev-parse", "--short", "HEAD"],
             cwd=root,
             capture_output=True,
             text=True,
             timeout=1.5,
             check=True,
         )
-        return proc.stdout.strip() or "unknown"
+        short_hash = proc.stdout.strip()
+        if short_hash:
+            return short_hash
     except Exception:
-        return "unknown"
+        pass
+    # Fall back to a hash baked in at package/Docker build time, for
+    # installs (pip, Docker images) that don't ship a .git directory at all.
+    try:
+        baked = (Path(__file__).resolve().parent / "_build_info.txt").read_text().strip()
+        if baked:
+            return baked
+    except Exception:
+        pass
+    return "unknown"
 
 
 __build_git__ = _detect_git_hash()

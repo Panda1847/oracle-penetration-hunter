@@ -226,7 +226,7 @@ _HTML_TMPL_SRC = r"""<!doctype html>
     </section>
   </main>
 
-  <footer>ORACLE v3.2 • Intended for authorized lab environments only</footer>
+  <footer>ORACLE v4 • Intended for authorized environments only</footer>
 </body>
 </html>"""
 

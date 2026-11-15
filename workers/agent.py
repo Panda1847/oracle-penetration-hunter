@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import threading
 import urllib.request
@@ -152,11 +153,46 @@ class WorkerAgent:
         except Exception:
             return
 
+    # Shell metacharacters that must never reach subprocess when shell=False.
+    # Checked as raw substrings, NOT as post-split tokens: shlex.split()
+    # happily glues an unspaced ";" or "|" onto the previous word (e.g.
+    # "host; rm -rf /" -> ["host;", "rm", "-rf", "/"]), so a token-equality
+    # check alone can be bypassed just by omitting whitespace. Scanning the
+    # raw string first closes that gap regardless of spacing.
+    _SHELL_META_CHARS = ("|", ";", "&", ">", "<", "`")
+
+    @classmethod
+    def _normalize_command(cls, command: str) -> tuple[list[str] | None, str]:
+        if not command or not command.strip():
+            return None, "empty command"
+        if "\n" in command or "\r" in command:
+            return None, "multi-line command not allowed"
+        for meta in ("`", "$(", "${") + cls._SHELL_META_CHARS:
+            if meta in command:
+                return None, f"unsafe shell metacharacter found: {meta!r}"
+        try:
+            argv = shlex.split(command)
+        except ValueError as exc:
+            return None, f"command parse error: {exc}"
+        if not argv:
+            return None, "empty command argv"
+        return argv, ""
+
     def _fallback_execute(self, command: str, timeout_seconds: int, reason: str) -> dict:
+        argv, normalize_error = self._normalize_command(command)
+        if argv is None:
+            return {
+                "stdout": "",
+                "stderr": f"unsafe command rejected: {normalize_error}",
+                "returncode": -1,
+                "duration_ms": 0,
+                "timed_out": False,
+                "fallback_reason": reason,
+            }
         try:
             completed = subprocess.run(
-                command,
-                shell=True,
+                argv,
+                shell=False,
                 text=True,
                 capture_output=True,
                 timeout=max(1, timeout_seconds),

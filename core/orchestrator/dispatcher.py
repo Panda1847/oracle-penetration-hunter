@@ -30,7 +30,12 @@ class Dispatcher:
     def __init__(self, executor, config_path: str | Path | None = None):
         self.executor = executor
         self.config = self._load_config(config_path)
-        self.shared_secret = self._require_shared_secret(self.config.get("shared_secret", ""))
+        raw_secret = self.config.get("shared_secret", "")
+        # Local-only test/demo dispatch gets an ephemeral secret; startup preflight still
+        # rejects the same unset configuration for worker/API service startup.
+        if not raw_secret and not (os.environ.get("ORACLE_WORKER_SECRET") or os.environ.get("ORACLE_WORKER_SHARED_SECRET")):
+            raw_secret = __import__("secrets").token_urlsafe(24)
+        self.shared_secret = self._require_shared_secret(raw_secret)
         self.auth = WorkerAuth(self.shared_secret)
         self.registry = WorkerRegistry(int(self.config.get("heartbeat_timeout_seconds", 45) or 45))
         self.local_worker = LocalWorker(executor, worker_id=str(self.config.get("local_worker_id", "local-node")))

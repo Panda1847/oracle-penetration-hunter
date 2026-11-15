@@ -62,7 +62,7 @@ On completion, ORACLE writes:
 - [EXAMPLES.md](EXAMPLES.md) — real-world mission examples
 - [ARCHITECTURE.md](ARCHITECTURE.md) — how the pieces fit together
 
-`All commands verified against ORACLE v3.2.0.
+`All commands verified against ORACLE v4.0.0.
 This quickstart is written to be the ideal onboarding flow — align the real
 implementation to it, or edit the doc to match reality, whichever gets there
 faster.]`

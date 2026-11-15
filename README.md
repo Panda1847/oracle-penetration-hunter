@@ -1,279 +1,130 @@
 <div align="center">
 
-# 🔮 ORACLE Penetration Hunter
+# ORACLE
 
-### The AI Penetration Hunter Your Infrastructure Fears
+### Mission orchestration for authorized security testing
 
-*Distributed Autonomous Mission Orchestration*
+Scope-controlled execution, advisory AI, evidence intelligence, replayable missions, and professional reporting in one operator-focused platform.
 
-**Automated attack surface discovery, vulnerability hunting, and red team orchestration.**
-**Free Community Edition. Scope-Controlled. Evidence-Tracked.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](.github/workflows/ci.yml)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Made for Red Teamers](https://img.shields.io/badge/made%20for-red%20teamers-red.svg)](#)
-
-[Screenshots](#-see-it-in-action) •
-[Quickstart](#-quickstart) •
-[Features](#-features) •
-[Architecture](#-architecture) •
-[Examples](docs/EXAMPLES.md) •
-[Docs](docs/) •
-[Contributing](CONTRIBUTING.md)
+[![License](https://img.shields.io/badge/license-MIT-1f2937.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776ab.svg)](https://www.python.org/)
+[![Release](https://img.shields.io/badge/release-v4.0.0-7c3aed.svg)](RELEASE_STATUS.md)
+[![CI](https://github.com/Panda1847/oracle-penetration-hunter/actions/workflows/ci.yml/badge.svg)](https://github.com/Panda1847/oracle-penetration-hunter/actions/workflows/ci.yml)
 
 </div>
 
----
+> **Authorized use only.** ORACLE is intended for engagements with written authorization, internal environments owned by the operator, and isolated research labs. Read [SECURITY.md](SECURITY.md) before use.
 
-> ⚠️ **Authorized Use Only.** ORACLE is built for penetration testers, red teamers, and
-> security researchers operating **within written authorization and defined scope.**
-> See [SECURITY.md](SECURITY.md) and [Responsible Use](#-responsible-use) before running
-> this against any target. Unauthorized use against systems you do not own or have
-> explicit permission to test is illegal.
+## Overview
 
-## What is ORACLE?
+ORACLE is a distributed mission-orchestration platform for repeatable security operations. It combines a deterministic planner with an advisory AI layer, isolated workers, plugin-driven reconnaissance, evidence provenance, operator approvals, telemetry, replay, and report generation.
 
-ORACLE is an AI-assisted mission orchestration platform for authorized security testing.
-It automates the grind of reconnaissance and attack-surface mapping, keeps every action
-**inside a defined scope**, and builds an **evidence graph** as it goes — so your findings
-are reproducible, explainable, and ready for reporting, not buried in fifty terminal tabs.
+The core design principle is simple: **policy and scope remain authoritative**. AI recommendations are advisory, every action is evaluated against policy, and missions can continue with deterministic fallbacks when an AI backend is unavailable.
 
-Point it at a scope and an objective, and ORACLE runs an autonomous mission loop: a
-planner and mission manager evaluate the next move each iteration, an **AI Council**
-reviews candidate actions against a canonical attack graph, and every decision — accepted,
-overridden, or deferred to a deterministic fallback — is written to the timeline. Nothing
-executes outside the scope you define, and the entire run is replayable afterward from
-its own evidence artifacts.
+![ORACLE control plane](assets/oracle_social_preview.png)
 
-It's built by a red teamer, for red teamers: `I built ORACLE because manual attack surface mapping is too slow for modern CI/CD. It automates the tedious recon and vulnerability chaining, letting red teams focus on creative exploitation.
-what problem it solved for you personally — this is the most convincing line in the
-whole README, write it in your own voice]`.
+## Capabilities
 
-## 🎯 Features
+- **Mission control plane** — Launch, monitor, pause, resume, and review missions through the CLI and web gateway.
+- **Scope and engagement controls** — Enforce target scope, approvals, risk ceilings, and signed engagement records.
+- **Advisory AI with deterministic fallback** — Route recommendations through configured providers without allowing model output to bypass guardrails.
+- **Evidence intelligence** — Track findings, confidence, provenance, contradictions, and relationships in an evidence graph.
+- **Replayable operations** — Preserve decisions, events, artifacts, and operator actions for review and reporting.
+- **Worker isolation** — Dispatch execution through authenticated workers and an optional Go runtime.
+- **Plugin architecture** — Add capabilities through manifest-driven plugins instead of hard-coded workflows.
+- **Reporting and export** — Produce structured JSON and operator-facing summaries from the mission record.
+- **Telemetry** — Expose health, metrics, tracing, and dashboard configuration for operational visibility.
 
-- **🕹️ Live Mission Control Plane** — A real-time web dashboard (default `:8088`) showing
-  mission phase, workers, findings, approvals, artifacts, and operator notes in one place —
-  not a folder of scattered logs.
-- **🧠 AI Council Advisory Layer** — Named model backends propose actions; a confidence
-  gate decides whether to accept, fall back to deterministic logic, or flag for operator
-  review. Every recommendation, acceptance, override, and drift event is recorded.
-- **🕸️ Attack Graph & Risk Scoring** — Hosts, services, and findings are correlated into a
-  live attack graph with per-node risk scores and highlighted candidate attack paths.
-- **⏪ Full Mission Replay** — Every mission writes replay artifacts, so a completed run
-  can be stepped back through phase-by-phase for review, training, or reporting.
-- **🛡️ Scope-Guarded by Design** — Every action is checked against an explicit,
-  operator-defined scope before it runs. Nothing touches what isn't authorized, and if the
-  AI backend is unreachable, ORACLE falls back to deterministic guardrails rather than
-  guessing.
-- **🌐 Topology Mapping** — Discovered subnets, hosts, and services are assembled into a
-  live topology graph as the mission runs.
-- **🔌 Plugin-Based Tooling** — Reconnaissance capability ships as plugins (`nmap`, `http`,
-  `fuzz` out of the box) that orchestrate your existing tools rather than replacing them.
-- **📊 Reporting Built-In** — Every mission produces a Markdown + HTML executive summary
-  with graphed findings, automatically, on completion.
-
-## 🖥️ See It In Action
-
-**A live mission, end to end** — from CLI launch to the AI Council reasoning about its
-next move, to attack graph risk scoring, to a finished replayable mission.
-
-### Launching a mission
-
-ORACLE boots with a startup preflight, loads its plugins, and starts the mission loop —
-falling back to deterministic logic automatically when no AI backend is reachable:
-
-![ORACLE CLI mission run](assets/screenshots/04-cli-mission-run.png)
-
-### Live Mission Control Plane
-
-The web dashboard tracks phase, hosts, findings, and workers in real time:
-
-![ORACLE Control Plane overview](assets/screenshots/01-control-plane-overview.png)
-
-### AI Council + Attack Graph
-
-Every candidate action is reasoned about against the attack graph before it's accepted,
-overridden, or deferred to a deterministic fallback — with full agreement/drift tracking:
-
-![Attack graph, replay, and AI Council](assets/screenshots/03-attack-graph-ai-council.png)
-
-### Timeline, Topology & Artifacts
-
-Every reasoning step, decision, and discovered topology node is logged — and every
-mission produces downloadable artifacts (evidence, intelligence, packaged reports):
-
-![Timeline, topology, and artifacts](assets/screenshots/02-timeline-artifacts-notes.png)
-
----
-
-### Detailed Mission Walkthrough (9 Frames)
-
-<details>
-<summary>Frame 1: CLI Startup & Preflight</summary>
-
-![CLI startup with ORACLE ASCII banner and startup preflight checks](assets/screenshots/05-cli-startup-preflight.png)
-
-The mission boots with a startup preflight (checking plugin availability, AI backend
-connectivity, falling back to deterministic logic if needed), then loads plugins
-and begins the mission loop.
-
-</details>
-
-<details>
-<summary>Frame 2: Mission Complete — Initial Findings</summary>
-
-![Mission completion screen showing 1 host discovered, 1 critical finding](assets/screenshots/06-mission-complete-findings.png)
-
-After the first iterations, the knowledge graph has 1 host and 1 finding (a
-TCP-wrapped service on port 8888). The AI Council reasons about next steps and
-the report is being generated automatically.
-
-</details>
-
-<details>
-<summary>Frame 3: AI Council Reasoning & Action Feed</summary>
-
-![Detailed view of AI reasoning, last action taken, and action feed timeline](assets/screenshots/07-ai-reasoning-action-feed.png)
-
-The left panel ("Intel / Operator") shows the AI's reasoning ("Local fallback selected
-the highest-confidence allowed action during..."). The right "Action Feed" shows each
-tool invocation (nmap, http, etc.) with timestamps and response codes.
-
-</details>
-
-<details>
-<summary>Frame 4: Discovery Phase — Port Mapping</summary>
-
-![Discovery phase with large port range scan active, showing pending work](assets/screenshots/08-discovery-phase-mapping.png)
-
-The mission enters the DISCOVERY phase. The AI is reasoning about the next action, and
-the last action was an nmap with a large port range. The Knowledge Graph shows ports
-being enumerated against the target.
-
-</details>
-
-<details>
-<summary>Frame 5: AI Pending Work — Reasoning in Progress</summary>
-
-![AI still thinking, with discovery scan ports showing in output](assets/screenshots/09-ai-pending-scan-work.png)
-
-The AI Council continues evaluating candidate actions. The discovery phase is still
-active with pending scan work — the planner is deciding whether to continue enumeration,
-pivot to deeper scanning, or move to the next phase.
-
-</details>
-
-### Live mission from start to finish
-
-Watch a real mission run from startup preflight, through the AI Council reasoning loop,
-to completion — 68 seconds that show scope enforcement, live reasoning, and findings
-being assembled into the knowledge graph:
-
-<video width="100%" controls>
-  <source src="assets/demo.mp4" type="video/mp4">
-  Your browser does not support the video tag. <a href="assets/demo.mp4">Download demo.mp4</a>
-</video>
-
-## 🚀 Quickstart
+## Quick start
 
 ```bash
-# Clone the repository
 git clone https://github.com/Panda1847/oracle-penetration-hunter.git
 cd oracle-penetration-hunter
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Launch a mission against your lab scope, with the live dashboard enabled
-python3 -m oracle \
-  --scope 10.0.0.2 10.0.0.3 10.0.0.4 \
-  --mission-name enterprise-demo \
-  --objective "Enumerate CI/DB/web tier, identify exposed credentials and misconfigurations" \
-  --profile normal \
-  --max-iter 20 \
-  --web --web-port 8088 \
-  --report \
-  --audit-log
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install -e .
+python -m oracle --demo --web --web-port 5000
 ```
 
-Open `http://127.0.0.1:8088` to watch the mission run live in the Control Plane. On
-completion, ORACLE writes a Markdown + HTML executive summary report automatically.
+Open `http://127.0.0.1:5000` for the local control plane. For a complete setup, see [docs/QUICKSTART.md](docs/QUICKSTART.md) and [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
-> By default the dashboard binds to loopback and blocks non-local clients unless
-> credentials are configured — see [docs/CONFIGURATION.md](docs/CONFIGURATION.md) before
-> exposing it beyond `127.0.0.1`.
+## Advisory AI
 
-See [docs/QUICKSTART.md](docs/QUICKSTART.md) for a full walkthrough and
-[docs/INSTALLATION.md](docs/INSTALLATION.md) for platform-specific setup
-(Kali Linux, Docker, and manual installs).
+ORACLE keeps the planner authoritative and treats external model output as untrusted advice. Configure an approved backend in `config/ai.yaml` or use deterministic mode for a fully local run. Ollama is supported for local advisory inference; if no backend is available, the platform records the fallback and continues with deterministic planning.
 
-## 🏗️ Architecture
+Never place provider secrets in source control. Use environment variables or the deployment secret store described in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-ORACLE is organized into five cooperating layers:
+## Signed engagements
 
-| Layer | Responsibility |
-|---|---|
-| `oracle/core` | Mission state, scope enforcement, configuration |
-| `oracle/reconnaissance` | Passive/active discovery pipelines |
-| `oracle/scanning` | Vulnerability and service scanning orchestration |
-| `oracle/exploitation` | Controlled, opt-in exploitation workflow chaining |
-| `oracle/reporting` | Evidence graph → structured report generation |
+For non-lab operations, use the offline engagement-issuance workflow. The authoring utility creates an Ed25519-signed record; the runtime verifies it with a public key and fails closed on malformed, expired, revoked, or tampered records.
 
-Full diagrams and data flow in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+```bash
+python scripts/issue_engagement.py genkey \
+  --out-private authority.key --out-public authority.pub
+python scripts/issue_engagement.py issue \
+  --private-key authority.key \
+  --contract-id CONTRACT-2026-0142 \
+  --client "Example Client" \
+  --scope 192.0.2.10 \
+  --issued-by "security@example.com" \
+  --out engagement.json
+```
 
-## 📦 Comparison
+Keep the private authority key offline and outside the ORACLE runtime. See [docs/key_custody.md](docs/key_custody.md).
 
-| | ORACLE | Traditional Toolchains |
-|---|---|---|
-| Scope enforcement | Built-in, mandatory | Manual discipline |
-| Evidence tracking | Automatic graph + replay artifacts | Manual notes / screenshots |
-| AI-assisted triage | AI Council with confidence gating + deterministic fallback | ❌ |
-| Attack path analysis | Live attack graph with per-node risk scoring | Manual correlation |
-| Mission review | Full step-by-step replay | Reconstructed from logs/memory |
-| Reporting | Auto-generated Markdown + HTML on completion | Written from scratch |
-| Tool orchestration | Unified mission model, plugin-based | Separate tabs/scripts |
+## Architecture
 
-`Compared to traditional scanners like Nessus, ORACLE doesn't just find vulnerabilities; it reasons about attack paths and chains findings to demonstrate real impact.
-actually used side-by-side) once you have a fair, specific basis for it — precise,
-falsifiable claims build more trust with technical readers than broad category
-comparisons alone.]`
+```text
+Operator / CLI / Web UI
+          |
+      API gateway
+          |
+  Mission manager + policy
+     /       |       \
+ Planner   Evidence   Event bus
+    |          |          |
+ Workers   Reporting   Replay store
+    |
+ Optional Go execution runtime
+```
 
-## 🗺️ Roadmap
+The main source areas are:
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for what's shipped, in progress, and planned —
-including community-requested features.
+| Area | Responsibility |
+| --- | --- |
+| `core/` | Planning, policy, orchestration, AI routing, and reporting |
+| `oracle/runtime/` | Runtime safety, sessions, audit, configuration, and execution |
+| `workers/` | Worker registration, authentication, heartbeats, and callbacks |
+| `plugins/` | Capability discovery, validation, and plugin registry |
+| `security/` | Signing, vault, mTLS, sandboxing, and engagement verification |
+| `api/` and `web/` | Operator APIs and the control-plane gateway |
+| `telemetry/` | Health checks, metrics, tracing, and dashboards |
+| `runtime-go/` | Concurrent isolated execution support |
+| `tests/` | Unit, integration, and resilience coverage |
 
-## 🤝 Contributing
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/API.md](docs/API.md), and [docs/security.md](docs/security.md) for deeper detail.
 
-Contributions are welcome — from bug reports to new reconnaissance modules. Read
-[CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) to get
-started.
+## Verification
 
-## 🔒 Responsible Use
+```bash
+make ci
+```
 
-ORACLE is a Free Community Edition tool intended **exclusively** for:
+The CI workflow compiles the Python packages, runs Python tests, and runs the Go runtime tests when the Go toolchain is available. `make verify` performs environment checks without starting a mission.
 
-- Authorized penetration testing engagements with signed scope/rules of engagement
-- Red team operations within your own organization
-- Security research in isolated lab environments you own or control
-- CTFs and other explicitly permitted testing environments
+## Project documentation
 
-Do not use ORACLE against any system without explicit, written authorization. See
-[SECURITY.md](SECURITY.md) for responsible disclosure and reporting.
+- [Release status](RELEASE_STATUS.md)
+- [Installation](docs/INSTALLATION.md)
+- [Quick start](docs/QUICKSTART.md)
+- [Configuration](docs/CONFIGURATION.md)
+- [Mission lifecycle](docs/mission_lifecycle.md)
+- [Plugin SDK](docs/plugin_sdk.md)
+- [Security model](docs/security.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)
 
-## 📄 License
+## License
 
-Released under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-
-**Built by [Panda1847](https://github.com/Panda1847) / NULLSEC**
-
-If ORACLE is useful to your work, consider giving it a ⭐ — it genuinely helps other
-red teamers find the project.
-
-</div>
+ORACLE is released under the [MIT License](LICENSE). It is not a substitute for authorization, rules of engagement, or professional judgment.

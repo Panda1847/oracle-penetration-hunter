@@ -2,7 +2,8 @@ workers:
   mode: local
   heartbeat_seconds: 30
   heartbeat_timeout_seconds: 45
-  shared_secret: oracle-worker-2f8d3c91e5a74b89
+  # Set ORACLE_WORKER_SECRET in the environment before starting workers/API.
+  shared_secret: ""
   callback_host: 127.0.0.1
   callback_port: 0
   local_worker_id: local-node

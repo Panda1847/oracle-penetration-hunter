@@ -90,9 +90,13 @@ class SafetyValidator:
         # Always allow loopback
         if target in ("localhost", "127.0.0.1", "::1", "local"):
             return True
-        # No scope defined = allow (demo/test mode)
+        # No scope defined: fail closed by default (strict=True) since an
+        # empty scope is far more often a config bug than an intentional
+        # "allow everything" choice for a tool that runs network actions.
+        # Callers that genuinely want unrestricted demo/test mode must opt
+        # in explicitly via strict=False.
         if not self._nets and not self._hosts:
-            return True
+            return not self.strict
         # Try IP match
         try:
             ip = ipaddress.ip_address(target)

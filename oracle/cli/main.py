@@ -31,6 +31,7 @@ from ..core.intelligence import IntelligenceEngine
 from ..core.reporting import deterministic_narrative, render_html_report
 from ..core.config import load_config, argparse_defaults_from_config
 from core.policy.scope_guard import ScopeGuard
+from security.engagement import EngagementError, EngagementVerifier
 from core.ai.model_router import ModelRouter
 from .doctor import run_doctor
 from ..runtime.audit import AuditLogger, AuditConfig
@@ -74,6 +75,50 @@ def build_registry() -> PluginRegistry:
     return reg
 
 
+def _resolve_scope_guard(mission: Mission, args) -> ScopeGuard:
+    """The single choke point every mission's scope passes through.
+
+    Exactly two ways out of here with a live-capable ScopeGuard:
+      - a verified, unexpired, signed engagement (--engagement)
+      - explicit --lab, which pins scope to loopback no matter what
+
+    Anything else — no --engagement and no --lab, or a bad/expired
+    engagement — raises. There is deliberately no third path.
+    """
+    engagement_path = getattr(args, "engagement", None) if args is not None else None
+    lab_mode = bool(getattr(args, "lab", False)) if args is not None else False
+
+    if engagement_path:
+        pubkey_path = (
+            getattr(args, "engagement_pubkey", None)
+            or os.environ.get("ORACLE_ENGAGEMENT_PUBKEY", "")
+        )
+        if not pubkey_path:
+            raise EngagementError(
+                "--engagement was given but no trusted public key was provided "
+                "(--engagement-pubkey or ORACLE_ENGAGEMENT_PUBKEY)"
+            )
+        verifier = EngagementVerifier.from_file(pubkey_path)
+        guard = ScopeGuard.from_engagement(
+            engagement_path, verifier=verifier, requested_profile=mission.profile
+        )
+        mission.scope = list(guard.engagement.authorized_scope)
+        console.print(f"[dim]  Engagement verified: {guard.engagement_summary()}[/dim]")
+        return guard
+
+    if lab_mode:
+        guard = ScopeGuard.for_lab()
+        mission.scope = ["localhost", "127.0.0.1", "::1"]
+        console.print("[dim]  Lab mode: scope pinned to loopback, no contract required.[/dim]")
+        return guard
+
+    raise EngagementError(
+        "No scope authorization provided. Live missions require --engagement "
+        "(a signed EngagementRecord) and --engagement-pubkey. For local/lab "
+        "use with no real target, pass --lab explicitly."
+    )
+
+
 def build_stack(mission: Mission, api_key: str, args=None):
     """Build the complete ORACLE runtime stack."""
     storage  = Storage(DATA_DIR)
@@ -81,7 +126,7 @@ def build_stack(mission: Mission, api_key: str, args=None):
     registry = build_registry()
     ai       = OracleAI(api_key=api_key)
     executor = Executor(registry)
-    safety   = ScopeGuard(mission.scope)
+    safety   = _resolve_scope_guard(mission, args)
     # Hybrid CVE engine (Tier 1 offline always; Tier 2 online optional).
     online = bool(getattr(args, "online_cve", False)) if args is not None else False
     intel = IntelligenceEngine(
@@ -234,6 +279,29 @@ def run_demo(args):
 
 # ── Live mode ─────────────────────────────────────────────────────────────────
 
+def record_engagement_verified(audit, safety, mission) -> bool:
+    """Write an engagement_verified event into the mission's audit log.
+
+    Returns True when an event was written. Lab/no-contract runs have no
+    engagement and write nothing; a run without an audit logger writes nothing.
+    """
+    engagement = getattr(safety, "engagement", None)
+    if audit is None or engagement is None:
+        return False
+    audit.log(
+        "engagement_verified",
+        {
+            "contract_id": engagement.contract_id,
+            "client": engagement.client,
+            "scope": list(engagement.authorized_scope),
+            "max_profile": engagement.max_profile,
+            "issued_by": engagement.issued_by,
+            "mission": mission.name,
+        },
+    )
+    return True
+
+
 def run_live(args):
     api_key = (
         args.api_key
@@ -287,6 +355,10 @@ def run_live(args):
         else:
             ap = Path(args.audit_log)
         audit = AuditLogger(AuditConfig(path=ap))
+
+    # Record contract-backed authorization in the SAME audit log as the
+    # mission, so there is one tamper-evident trail, not two.
+    record_engagement_verified(audit, safety, mission)
 
     webhook = None
     if getattr(args, "webhook_url", ""):
@@ -539,7 +611,10 @@ Examples:
   oracle --list-plugins                             Show available plugins
         """
     )
-    p.add_argument("--scope",         nargs="+",   metavar="TARGET")
+    p.add_argument("--scope",         nargs="+",   metavar="TARGET", help="Deprecated for live use — see --engagement. Ignored if --engagement is set.")
+    p.add_argument("--engagement",    metavar="PATH", help="Path to a signed EngagementRecord artifact (JSON). Required for any non-loopback --scope.")
+    p.add_argument("--engagement-pubkey", metavar="PATH", help="Path to the trusted Ed25519 public key (PEM) used to verify --engagement (or set ORACLE_ENGAGEMENT_PUBKEY)")
+    p.add_argument("--lab",           action="store_true", help="Explicit no-contract mode: scope is pinned to loopback only, regardless of --scope.")
     p.add_argument("--config",        metavar="PATH", help="Path to config.toml (default: ~/.oracle/config.toml)")
     p.add_argument("--mission-name",  metavar="NAME")
     p.add_argument("--objective",     default="Identify all reachable services and vulnerabilities")
@@ -589,7 +664,7 @@ BANNER = r"""
  ██║   ██║██╔══██╗██╔══██║██║     ██║     ██╔══╝
  ╚██████╔╝██║  ██║██║  ██║╚██████╗███████╗███████╗
   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
-  Offensive Recon And Command Logic Engine  v3.2
+  Offensive Recon And Command Logic Engine  v4.0
 """
 
 

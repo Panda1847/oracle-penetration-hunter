@@ -79,7 +79,16 @@ def test_scope_summary(safety):
     s = safety.scope_summary()
     assert "192.168.56.0/24" in s
 
-def test_empty_scope_allows_all():
+def test_empty_scope_fails_closed_by_default():
+    # Policy: an empty scope is a config bug more often than intent, so it
+    # must deny everything except loopback unless explicitly opted out.
     s = SafetyValidator(scope=[])
+    ok, reason = s.validate(make_action(target="10.10.10.10"), "nmap 10.10.10.10")
+    assert not ok
+    assert "SCOPE" in reason
+
+
+def test_empty_scope_allows_all_only_when_strict_disabled():
+    s = SafetyValidator(scope=[], strict=False)
     ok, _ = s.validate(make_action(target="10.10.10.10"), "nmap 10.10.10.10")
     assert ok

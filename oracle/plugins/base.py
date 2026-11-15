@@ -6,18 +6,11 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import logging
-import warnings
 from pathlib import Path
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 
 from plugins.registry import EnterprisePluginRegistry
-
-warnings.warn(
-    "oracle.plugins.base is deprecated. Use plugins.registry instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)
 
 log = logging.getLogger("oracle.plugins")
 

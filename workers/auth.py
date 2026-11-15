@@ -22,10 +22,28 @@ class WorkerAuth:
         "default",
     }
     MIN_SECRET_LEN = 16
+    # Max allowed clock skew (seconds) between a signed request's timestamp
+    # and "now" before verify() rejects it as stale/replayed. Wide enough to
+    # tolerate real network/clock jitter, narrow enough that a captured
+    # signed request can't be replayed indefinitely.
+    DEFAULT_MAX_CLOCK_SKEW_SECONDS = 300
 
-    def __init__(self, shared_secret: str | None = None, *, allow_insecure: bool | None = None):
+    def __init__(
+        self,
+        shared_secret: str | None = None,
+        *,
+        allow_insecure: bool | None = None,
+        max_clock_skew_seconds: int | None = None,
+    ):
         value = self.resolve_shared_secret(shared_secret, allow_insecure=allow_insecure)
         self.shared_secret = value.encode("utf-8")
+        if max_clock_skew_seconds is not None:
+            self.max_clock_skew_seconds = max_clock_skew_seconds
+        else:
+            self.max_clock_skew_seconds = int(
+                os.environ.get("ORACLE_WORKER_MAX_CLOCK_SKEW_SECONDS", self.DEFAULT_MAX_CLOCK_SKEW_SECONDS)
+                or self.DEFAULT_MAX_CLOCK_SKEW_SECONDS
+            )
 
     @classmethod
     def resolve_shared_secret(cls, shared_secret: str | None = None, *, allow_insecure: bool | None = None) -> str:
@@ -67,5 +85,15 @@ class WorkerAuth:
     def verify(self, payload: dict, headers: dict) -> bool:
         stamp = str(headers.get("X-Oracle-Timestamp", ""))
         signature = str(headers.get("X-Oracle-Signature", ""))
+        if not signature or not stamp:
+            return False
+        try:
+            stamp_seconds = int(stamp)
+        except ValueError:
+            return False
+        # Reject stale or future-dated timestamps so a captured, validly
+        # signed request can't be replayed indefinitely.
+        if abs(int(time.time()) - stamp_seconds) > self.max_clock_skew_seconds:
+            return False
         expected = self.sign(payload, timestamp=stamp)["X-Oracle-Signature"]
-        return bool(signature) and hmac.compare_digest(signature, expected)
+        return hmac.compare_digest(signature, expected)

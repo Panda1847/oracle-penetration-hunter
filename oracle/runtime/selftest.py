@@ -135,7 +135,7 @@ def run_selftest(console: Console, *, registry, data_dir: Path, log_dir: Path) -
     try:
         workers_cfg = cfg.get("workers", {}) if isinstance(cfg.get("workers"), dict) else {}
         auth = WorkerAuth(str(workers_cfg.get("shared_secret", "")))
-        signed = auth.sign({"selftest": True}, timestamp="1")
+        signed = auth.sign({"selftest": True})
         ok = auth.verify({"selftest": True}, signed)
         results.append(SelfTestResult("worker auth", "hmac sign/verify", ok, True))
     except Exception as exc:

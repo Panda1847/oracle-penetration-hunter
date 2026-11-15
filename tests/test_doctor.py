@@ -23,6 +23,7 @@ class _PyOnly(ToolPlugin):
 
 
 def test_doctor_strict_does_not_require_api_keys(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORACLE_WORKER_SECRET", "test-only-worker-secret-0123456789")
     reg = PluginRegistry()
     reg._plugins["pyonly"] = _PyOnly()
 
@@ -50,6 +51,7 @@ def test_doctor_strict_fails_on_missing_optional_dep(tmp_path, monkeypatch):
 
 
 def test_doctor_accepts_ollama_backend_without_anthropic_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORACLE_WORKER_SECRET", "test-only-worker-secret-0123456789")
     import oracle.cli.doctor as doc
 
     reg = PluginRegistry()
@@ -73,6 +75,7 @@ def test_doctor_accepts_ollama_backend_without_anthropic_key(tmp_path, monkeypat
 
 
 def test_doctor_accepts_council_backend_with_ollama_delegate(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORACLE_WORKER_SECRET", "test-only-worker-secret-0123456789")
     import oracle.cli.doctor as doc
 
     reg = PluginRegistry()

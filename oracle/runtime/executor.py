@@ -35,7 +35,12 @@ class Executor:
         self._lock = RLock()
         self._prefer_go_runtime = os.environ.get("ORACLE_EXECUTOR_USE_GO_RUNTIME", "").lower() in {"1", "true", "yes"}
 
-    SHELL_META_TOKENS = {"|", "||", ";", "&&", ">", ">>", "<", "<<", "2>", "&>", "2>&1"}
+    # Checked as raw substrings, NOT as post-split tokens: shlex.split()
+    # glues an unspaced ";" or "|" onto the previous word (e.g.
+    # "host; rm -rf /" -> ["host;", "rm", "-rf", "/"]), so a token-equality
+    # check alone can be bypassed just by omitting whitespace. Scanning the
+    # raw string first closes that gap regardless of spacing.
+    SHELL_META_CHARS = ("|", ";", "&", ">", "<", "`")
 
     def _fingerprint(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -45,18 +50,15 @@ class Executor:
             return None, "empty command"
         if "\n" in cmd or "\r" in cmd:
             return None, "multi-line command not allowed"
-        for meta in ("`", "$(", "${"):
+        for meta in ("`", "$(", "${") + self.SHELL_META_CHARS:
             if meta in cmd:
-                return None, f"unsafe shell interpolation token found: {meta}"
+                return None, f"unsafe shell metacharacter found: {meta!r}"
         try:
             argv = shlex.split(cmd)
         except ValueError as exc:
             return None, f"command parse error: {exc}"
         if not argv:
             return None, "empty command argv"
-        for token in argv:
-            if token in self.SHELL_META_TOKENS:
-                return None, f"shell control token not allowed: {token}"
         return argv, ""
 
     def _missing_binary(self, argv: list[str]) -> tuple[bool, str]:

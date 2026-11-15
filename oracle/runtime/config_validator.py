@@ -15,6 +15,9 @@ from workers.auth import WorkerAuth
 from ..core.ai import OracleAI
 
 
+# Secrets that have been committed to this repository in the past.
+COMMITTED_WORKER_SECRETS = frozenset({"oracle-worker-2f8d3c91e5a74b89"})
+
 @dataclass(frozen=True)
 class RuntimeCheck:
     name: str
@@ -103,11 +106,21 @@ class RuntimeConfigValidator:
     def _worker_secret_check(self) -> RuntimeCheck:
         workers_cfg = self._config_section("workers")
         raw = workers_cfg.get("shared_secret", "")
+        # A secret that was ever committed to the repo is public; refuse it
+        # even if it satisfies the length/strength rules.
         try:
             resolved = WorkerAuth.resolve_shared_secret(raw)
-            return RuntimeCheck("worker secret sane", f"len={len(resolved)}", True, "required")
         except Exception as exc:
+            # Required, not "config": a rejected secret must block startup.
             return RuntimeCheck("worker secret sane", str(exc), False, "required")
+        if resolved in COMMITTED_WORKER_SECRETS:
+            return RuntimeCheck(
+                "worker secret sane",
+                "configured secret matches a value committed to the repository; rotate it",
+                False,
+                "required",
+            )
+        return RuntimeCheck("worker secret sane", f"len={len(resolved)}", True, "required")
 
     def _auth_sanity_check(self) -> RuntimeCheck:
         # Either token or full basic auth pair is sane.

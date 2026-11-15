@@ -115,9 +115,9 @@ def run_doctor(
     backend = str(
         os.environ.get("ORACLE_AI_BACKEND")
         or os.environ.get("ORACLE_ADVISOR_BACKEND")
-        or advisor.get("backend", "auto")
+        or advisor.get("backend", "nim")
     ).strip().lower()
-    if backend not in {"auto", "anthropic", "ollama", "council", "deterministic"}:
+    if backend not in {"auto", "anthropic", "ollama", "council", "deterministic", "nim"}:
         backend = "auto"
 
     anthropic_ready = bool(os.environ.get("ORACLE_API_KEY") or os.environ.get("ANTHROPIC_API_KEY"))

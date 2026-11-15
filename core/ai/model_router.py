@@ -55,7 +55,7 @@ class ModelRouter:
             self.env.get("ORACLE_AI_BACKEND")
             or self.env.get("ORACLE_ADVISOR_BACKEND")
             or self.advisor_config.get("backend")
-            or "auto"
+            or "nim"
         )
         backend = str(raw).strip().lower()
         return backend if backend in self.VALID_BACKENDS else "auto"
@@ -108,10 +108,14 @@ class ModelRouter:
         if self.backend == "deterministic":
             return self.local
         if self.backend == "nim":
+            # NIM is the default. Fail over in a deterministic, observable order:
+            # Anthropic (if explicitly configured), local Ollama, then deterministic.
             if self._is_ready(self.nim):
                 return self.nim
             if self._is_ready(self.client):
                 return self.client
+            if self._is_ready(self.ollama):
+                return self.ollama
             return self.local
         if self.backend == "anthropic":
             return self.client if self._is_ready(self.client) else self.local

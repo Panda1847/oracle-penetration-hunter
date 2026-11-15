@@ -1,6 +1,6 @@
 module oracle-runtime-go
 
-go 1.24
+go 1.26
 
 require (
 	google.golang.org/grpc v1.72.1

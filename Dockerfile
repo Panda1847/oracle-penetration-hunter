@@ -1,8 +1,8 @@
 FROM kalilinux/kali-rolling:latest
 
 LABEL maintainer="ORACLE Project" \
-      description="ORACLE v3.2 — Autonomous AI Red Team Intelligence System" \
-      version="3.2.0"
+      description="ORACLE v4 — mission orchestration for authorized security testing" \
+      version="4.0.0"
 
 # ── System tools ──────────────────────────────────────────────────────────────
 RUN apt-get update -qq && \

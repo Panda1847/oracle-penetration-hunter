@@ -19,7 +19,7 @@ findings being assembled into the knowledge graph. Embedded in README.md under
 - `screenshots/08-discovery-phase-mapping.png` — Discovery phase with port mapping active
 - `screenshots/09-ai-pending-scan-work.png` — AI Council evaluating next actions
 
-All screenshots captured from the running ORACLE v3.2 system. Used in README.md and
+All screenshots captured from the running ORACLE v4 system. Used in README.md and
 docs/EXAMPLES.md.
 
 ## Optional
