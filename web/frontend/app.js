@@ -2,7 +2,7 @@ const params = new URLSearchParams(window.location.search);
 const token = params.get("token");
 if (token) localStorage.setItem("oracle_token", token);
 
-const state = { tab: "command", filter: "all", graphFilter: "all", graphZoom: 1, graphPan: {x: 0, y: 0}, snapshot: {}, lastEvents: [], selected: null, streamStarted: false, streamConnected: false, streamRetry: null, streamAbort: null };
+const state = { tab: "command", filter: "all", graphFilter: "all", graphZoom: 1, graphPan: {x: 0, y: 0}, snapshot: {}, lastEvents: [], selected: null, findingStatuses: {}, streamStarted: false, streamConnected: false, streamRetry: null, streamAbort: null };
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
 const num = (value, digits = 0) => Number(value || 0).toFixed(digits);
@@ -88,7 +88,15 @@ function severity(value) { const normalized = String(value || "INFO").toLowerCas
 function selectItem(title, data, kind = "event") {
   state.selected = {title, data, kind};
   $("inspector-title").textContent = title;
-  $("inspector-content").innerHTML = `<div class="inspector-kicker">${esc(kind.toUpperCase())}</div><div class="inspector-json"><pre>${esc(JSON.stringify(data, null, 2))}</pre></div><button class="button ghost full" id="copy-inspector">Copy raw JSON</button>`;
+  if (kind === "finding") {
+    const id = String(data.id || `${data.host || "asset"}:${data.title || "finding"}`);
+    const status = state.findingStatuses[id] || data.status || "open";
+    const evidence = Array.isArray(data.evidence) ? data.evidence : (data.evidence ? [data.evidence] : []);
+    $("inspector-content").innerHTML = `<div class="inspector-kicker">FINDING DETAIL</div><div class="finding-inspector"><div class="finding-inspector-row"><span>STATUS</span><select id="finding-status"><option ${status === "open" ? "selected" : ""}>open</option><option ${status === "triaged" ? "selected" : ""}>triaged</option><option ${status === "accepted" ? "selected" : ""}>accepted</option><option ${status === "resolved" ? "selected" : ""}>resolved</option></select></div><div class="finding-inspector-row"><span>SEVERITY</span><strong>${severity(data.severity)}</strong></div><div class="finding-inspector-row"><span>AFFECTED ASSET</span><strong>${esc(`${data.host || "unknown"}${data.port ? `:${data.port}` : ""}`)}</strong></div><div class="finding-inspector-row"><span>CONFIDENCE</span><strong>${num(Number(data.confidence || 0) * 100)}%</strong></div><div class="finding-inspector-block"><span>CVEs</span><p>${esc((data.cves || []).join(", ") || "No CVE references")}</p></div><div class="finding-inspector-block"><span>DESCRIPTION</span><p>${esc(data.description || data.summary || "No description supplied")}</p></div><div class="finding-inspector-block"><span>EVIDENCE REFERENCES</span><p>${esc(evidence.join("\n") || "No evidence references supplied")}</p></div><button class="button ghost full" id="copy-inspector">Copy raw JSON</button></div>`;
+    $("finding-status").onchange = (event) => { state.findingStatuses[id] = event.target.value; toast(`Finding marked ${event.target.value}`, "success"); };
+  } else {
+    $("inspector-content").innerHTML = `<div class="inspector-kicker">${esc(kind.toUpperCase())}</div><div class="inspector-json"><pre>${esc(JSON.stringify(data, null, 2))}</pre></div><button class="button ghost full" id="copy-inspector">Copy raw JSON</button>`;
+  }
   $("copy-inspector").onclick = async () => { await navigator.clipboard?.writeText(JSON.stringify(data, null, 2)); toast("Inspector payload copied", "success"); };
 }
 function setTab(tab) {
