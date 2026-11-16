@@ -131,6 +131,10 @@ def test_control_plane_gateway_endpoints(tmp_path):
         assert downloaded.status_code == 200
         assert downloaded.get_json()["ok"] is True
         assert client.get("/api/dashboard/chat").status_code == 200
+        for action, expected_status in (("pause", "paused"), ("resume", "running"), ("stop", "stopped")):
+            control = client.post("/api/dashboard/control", json={"action": action})
+            assert control.status_code == 200
+            assert control.get_json()["status"] == expected_status
     finally:
         dispatcher.shutdown()
 

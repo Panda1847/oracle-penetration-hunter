@@ -249,6 +249,22 @@ def create_gateway(
         graph.add_directive(text)
         return jsonify({"ok": True, "text": text}), 201
 
+    @app.post("/api/dashboard/control")
+    def mission_control():
+        auth = _require_auth()
+        if auth is not None:
+            return auth
+        if mission is None or graph is None:
+            return jsonify({"error": "mission unavailable"}), 503
+        payload = request.get_json() or {}
+        action = str(payload.get("action", "")).strip().lower()
+        transitions = {"pause": "paused", "resume": "running", "stop": "stopped"}
+        if action not in transitions:
+            return jsonify({"error": "action must be pause, resume, or stop"}), 400
+        mission.status = transitions[action]
+        graph.add_directive(f"Operator command: {action}")
+        return jsonify({"ok": True, "action": action, "status": mission.status}), 200
+
     @app.get("/api/dashboard/export")
     def export_snapshot():
         auth = _require_auth()

@@ -3,92 +3,65 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ORACLE Control Plane</title>
+  <meta name="theme-color" content="#071018">
+  <title>Oracle Penetration Hunter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-  <div class="shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Distributed Autonomous Mission Orchestration</p>
-        <h1>ORACLE Control Plane</h1>
-        <p class="subcopy">Deterministic mission state, worker telemetry, evidence intelligence, approvals, artifacts, and operator notes in one place.</p>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-lockup"><div class="brand-mark">O</div><div><strong>Oracle</strong><span>Penetration Hunter</span></div></div>
+      <div class="mission-selector"><span class="micro-label">ACTIVE MISSION</span><strong id="side-mission">Loading mission</strong><span class="status-line"><i class="status-dot live"></i><span id="side-status">connecting</span></span></div>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-tab="command"><span class="nav-icon">⌂</span><span>Command center</span><b>01</b></button>
+        <button class="nav-item" data-tab="activity"><span class="nav-icon">≋</span><span>Live activity</span><b id="activity-count">—</b></button>
+        <button class="nav-item" data-tab="findings"><span class="nav-icon">!</span><span>Findings</span><b id="finding-count">—</b></button>
+        <button class="nav-item" data-tab="topology"><span class="nav-icon">◈</span><span>Attack graph</span><b id="graph-count">—</b></button>
+        <button class="nav-item" data-tab="workers"><span class="nav-icon">⊙</span><span>Workers</span><b id="worker-count">—</b></button>
+        <button class="nav-item" data-tab="evidence"><span class="nav-icon">◇</span><span>Evidence</span><b id="evidence-count">—</b></button>
+        <button class="nav-item" data-tab="approvals"><span class="nav-icon">✓</span><span>Approvals</span><b id="approval-count">—</b></button>
+        <button class="nav-item" data-tab="reports"><span class="nav-icon">▤</span><span>Reports</span><b>↗</b></button>
+        <button class="nav-item" data-tab="telemetry"><span class="nav-icon">⌁</span><span>Telemetry</span><b>↗</b></button>
+      </nav>
+      <div class="kill-chain"><div class="micro-label">MISSION PHASE</div>
+        <div class="phase-step active" data-phase="INIT"><span>01</span><div><strong>Initialize</strong><small>scope & policy</small></div></div>
+        <div class="phase-step" data-phase="DISCOVERY"><span>02</span><div><strong>Discovery</strong><small>map surface</small></div></div>
+        <div class="phase-step" data-phase="ENUMERATION"><span>03</span><div><strong>Enumeration</strong><small>fingerprint services</small></div></div>
+        <div class="phase-step" data-phase="ANALYSIS"><span>04</span><div><strong>Analysis</strong><small>correlate evidence</small></div></div>
+        <div class="phase-step" data-phase="REPORTING"><span>05</span><div><strong>Reporting</strong><small>package findings</small></div></div>
       </div>
-      <div class="hero-card">
-        <div class="metric" id="mission-phase">INIT</div>
-        <div class="metric-label">Current Phase</div>
-        <div class="hero-strip">
-          <span id="metric-hosts">0 hosts</span>
-          <span id="metric-findings">0 findings</span>
-          <span id="metric-workers">0 workers</span>
+      <div class="sidebar-footer"><span class="status-dot live"></span> secure loopback session <span class="mono" id="version-chip">v4.0.0</span></div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar"><div class="breadcrumb"><span class="crumb-home">ORACLE</span><span>/</span><span id="breadcrumb-tab">COMMAND CENTER</span></div><div class="connection"><span class="status-dot live"></span><span id="connection-label">LIVE</span><span class="mono" id="last-sync">--:--:--</span></div><div class="top-actions"><button class="icon-button" id="refresh-button" title="Refresh now">↻</button><button class="export-button" id="export-button">Export snapshot <span>↗</span></button></div></header>
+      <section class="telemetry-strip"><div class="strip-cell"><span class="strip-label">PHASE</span><strong class="cyan" id="metric-phase">INIT</strong><span class="strip-sub" id="metric-status">—</span></div><div class="strip-cell"><span class="strip-label">HOSTS</span><strong id="metric-hosts">0</strong><span class="strip-sub">discovered</span></div><div class="strip-cell"><span class="strip-label">FINDINGS</span><strong class="amber" id="metric-findings">0</strong><span class="strip-sub">ranked</span></div><div class="strip-cell"><span class="strip-label">WORKERS</span><strong id="metric-workers">0</strong><span class="strip-sub">connected</span></div><div class="strip-cell"><span class="strip-label">EVIDENCE</span><strong id="metric-evidence">0</strong><span class="strip-sub">items</span></div><div class="strip-cell wide-strip"><span class="strip-label">MISSION OBJECTIVE</span><strong class="objective" id="metric-objective">Waiting for mission data</strong></div></section>
+      <section id="toast" class="toast" aria-live="polite"></section>
+
+      <div class="tab-panel active" data-panel="command"><div class="page-heading"><div><span class="eyebrow">Operational overview</span><h1>Command center</h1><p>Live mission posture, prioritized risk, and operator controls.</p></div><div class="heading-actions"><button class="button ghost" data-control="pause">Pause mission</button><button class="button primary" data-control="resume">Resume mission</button></div></div>
+        <div class="dashboard-grid"><section class="panel hero-panel span-8"><div class="panel-head"><div><span class="eyebrow">MISSION CONTROL</span><h2 id="mission-title">Loading mission</h2></div><span class="pill" id="mission-pill">CONNECTING</span></div><div class="mission-meta"><span><b>Objective</b><em id="mission-objective">—</em></span><span><b>Scope</b><em id="mission-scope">—</em></span><span><b>Iteration</b><em id="mission-iteration">0</em></span></div><div class="phase-progress" id="phase-progress"></div><div class="control-row"><button class="button danger" data-control="stop">Stop mission</button><button class="button ghost" data-tab-jump="activity">Open live feed <span>→</span></button><span class="control-hint">Controls are recorded in the mission timeline.</span></div></section>
+          <section class="panel span-4 score-panel"><div class="panel-head"><div><span class="eyebrow">RISK POSTURE</span><h2>Threat score</h2></div><span class="signal-bars"><i></i><i></i><i></i><i></i></span></div><div class="gauge-wrap"><div class="gauge"><div class="gauge-value" id="threat-score">0</div><div class="gauge-label">weighted risk</div></div></div><div class="score-foot"><span><i class="legend-dot red"></i> critical <b id="critical-count">0</b></span><span><i class="legend-dot amber"></i> elevated <b id="elevated-count">0</b></span></div></section>
+          <section class="panel span-7"><div class="panel-head"><div><span class="eyebrow">THROUGHPUT</span><h2>Mission activity</h2></div><span class="live-label"><i class="status-dot live"></i> streaming</span></div><div class="activity-chart" id="activity-chart"></div><div class="chart-axis"><span>-60s</span><span>-45s</span><span>-30s</span><span>-15s</span><span>now</span></div></section>
+          <section class="panel span-5"><div class="panel-head"><div><span class="eyebrow">AI COUNCIL</span><h2>Decision posture</h2></div><span class="pill subtle" id="council-mode">DETERMINISTIC</span></div><div id="council-summary" class="insight-list"></div></section>
+          <section class="panel span-7"><div class="panel-head"><div><span class="eyebrow">PRIORITY QUEUE</span><h2>Top findings</h2></div><button class="text-button" data-tab-jump="findings">View all →</button></div><div id="command-findings" class="compact-table"></div></section>
+          <section class="panel span-5"><div class="panel-head"><div><span class="eyebrow">CONTROL PLANE</span><h2>System health</h2></div><button class="text-button" data-tab-jump="telemetry">Details →</button></div><div id="health-summary" class="health-list"></div></section>
         </div>
-        <div class="build-tag" id="build-id">build unknown</div>
       </div>
-    </header>
 
-    <main class="grid">
-      <section class="panel wide">
-        <div class="panel-head">
-          <h2>Mission Overview</h2>
-          <span class="badge" id="mission-status">loading</span>
-        </div>
-        <div id="overview" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Workers</h2></div>
-        <div id="workers" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Approvals</h2></div>
-        <div id="approvals" class="stack"></div>
-      </section>
-
-      <section class="panel wide">
-        <div class="panel-head"><h2>Analyst Findings</h2></div>
-        <div id="findings" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Attack Graph</h2></div>
-        <div id="attack-graph" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Replay</h2></div>
-        <div id="replay" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>AI Council</h2></div>
-        <div id="council" class="stack"></div>
-      </section>
-
-      <section class="panel wide">
-        <div class="panel-head"><h2>Timeline</h2></div>
-        <div id="timeline" class="stack timeline"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Topology</h2></div>
-        <div id="topology" class="stack"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Artifacts</h2></div>
-        <div id="artifacts" class="stack"></div>
-      </section>
-
-      <section class="panel wide">
-        <div class="panel-head"><h2>Operator Notes</h2></div>
-        <div id="chat" class="stack timeline"></div>
-        <form id="chat-form" class="form-row">
-          <input id="chat-input" type="text" placeholder="Add an operator note">
-          <button type="submit">Post</button>
-        </form>
-      </section>
+      <div class="tab-panel" data-panel="activity"><div class="page-heading"><div><span class="eyebrow">Event stream</span><h1>Live activity</h1><p>Every decision, action, finding, and operator event as it arrives.</p></div><span class="live-label large"><i class="status-dot live"></i> auto-refreshing</span></div><section class="panel"><div class="filter-row"><div class="filter-pills"><button class="filter active" data-filter="all">All events</button><button class="filter" data-filter="action">Actions</button><button class="filter" data-filter="finding">Findings</button><button class="filter" data-filter="decision">Decisions</button></div><span class="mono muted" id="event-total">0 events</span></div><div class="event-table" id="event-table"></div></section></div>
+      <div class="tab-panel" data-panel="findings"><div class="page-heading"><div><span class="eyebrow">Evidence intelligence</span><h1>Findings</h1><p>Ranked results with confidence, affected assets, and supporting evidence.</p></div></div><section class="panel"><div class="finding-summary" id="finding-summary"></div><div class="finding-table" id="finding-table"></div></section></div>
+      <div class="tab-panel" data-panel="topology"><div class="page-heading"><div><span class="eyebrow">Attack surface</span><h1>Attack graph</h1><p>Correlated hosts, services, findings, and candidate paths.</p></div></div><div class="dashboard-grid"><section class="panel span-8"><div class="panel-head"><div><span class="eyebrow">CORRELATION MAP</span><h2>Candidate attack paths</h2></div><span class="pill" id="graph-pill">0 nodes</span></div><div id="graph-view" class="graph-view"></div></section><section class="panel span-4"><div class="panel-head"><div><span class="eyebrow">RISK NODES</span><h2>Highest weighted</h2></div></div><div id="risk-nodes" class="stack"></div></section></div></div>
+      <div class="tab-panel" data-panel="workers"><div class="page-heading"><div><span class="eyebrow">Distributed runtime</span><h1>Workers</h1><p>Worker health, capability coverage, and inflight execution.</p></div></div><section class="panel"><div class="worker-grid" id="worker-grid"></div></section></div>
+      <div class="tab-panel" data-panel="evidence"><div class="page-heading"><div><span class="eyebrow">Chain of custody</span><h1>Evidence</h1><p>Provenance-aware evidence with confidence and contradiction tracking.</p></div></div><div class="dashboard-grid"><section class="panel span-8"><div class="panel-head"><div><span class="eyebrow">EVIDENCE LEDGER</span><h2>Collected items</h2></div></div><div id="evidence-table" class="evidence-table"></div></section><section class="panel span-4"><div class="panel-head"><div><span class="eyebrow">QUALITY SIGNALS</span><h2>Confidence</h2></div></div><div id="evidence-quality" class="quality-card"></div></section></div></div>
+      <div class="tab-panel" data-panel="approvals"><div class="page-heading"><div><span class="eyebrow">Operator gate</span><h1>Approvals</h1><p>Review actions that require explicit operator authorization.</p></div></div><section class="panel"><div id="approval-table" class="approval-table"></div></section></div>
+      <div class="tab-panel" data-panel="reports"><div class="page-heading"><div><span class="eyebrow">Mission output</span><h1>Reports & artifacts</h1><p>Downloadable packages, summaries, evidence exports, and replay files.</p></div></div><section class="panel"><div id="report-table" class="report-table"></div></section></div>
+      <div class="tab-panel" data-panel="telemetry"><div class="page-heading"><div><span class="eyebrow">Runtime observability</span><h1>Telemetry</h1><p>Health, counters, gauges, and recent traces from the control plane.</p></div></div><div class="dashboard-grid"><section class="panel span-5"><div class="panel-head"><div><span class="eyebrow">COMPONENTS</span><h2>Health</h2></div></div><div id="telemetry-health" class="health-list"></div></section><section class="panel span-7"><div class="panel-head"><div><span class="eyebrow">METRICS</span><h2>Runtime signals</h2></div></div><div id="telemetry-metrics" class="metric-grid"></div></section><section class="panel span-12"><div class="panel-head"><div><span class="eyebrow">TRACE BUFFER</span><h2>Recent traces</h2></div></div><div id="trace-table" class="event-table"></div></section></div></div>
     </main>
+
+    <aside class="inspector" id="inspector"><div class="inspector-head"><div><span class="eyebrow">CONTEXT INSPECTOR</span><h2 id="inspector-title">Select an event</h2></div><button class="icon-button" id="close-inspector">×</button></div><div id="inspector-content" class="inspector-content"><div class="empty-inspector"><span class="empty-icon">◈</span><strong>Nothing selected</strong><p>Click a finding, event, worker, or evidence item to inspect its details.</p></div></div><div class="inspector-footer"><form id="directive-form"><label for="directive-input">Operator directive</label><div class="input-action"><input id="directive-input" placeholder="e.g. prioritize web tier" autocomplete="off"><button class="button primary" type="submit">Send</button></div></form><form id="note-form"><label for="note-input">Mission note</label><div class="input-action"><input id="note-input" placeholder="Add an analyst note" autocomplete="off"><button class="button ghost" type="submit">Post</button></div></form></div></aside>
   </div>
   <script src="/assets/app.js"></script>
 </body>

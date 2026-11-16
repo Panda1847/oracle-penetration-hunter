@@ -1,184 +1,151 @@
 const params = new URLSearchParams(window.location.search);
-const tokenFromQuery = params.get("token");
-if (tokenFromQuery) {
-  localStorage.setItem("oracle_token", tokenFromQuery);
-}
+const token = params.get("token");
+if (token) localStorage.setItem("oracle_token", token);
 
-async function fetchJson(path, options = {}) {
-  const token = localStorage.getItem("oracle_token") || "";
-  const headers = { ...(options.headers || {}) };
-  if (token) {
-    headers["X-Oracle-Token"] = token;
-  }
-  const response = await fetch(path, { ...options, headers });
-  if (!response.ok) {
-    throw new Error(`${path} -> ${response.status}`);
-  }
+const state = { tab: "command", filter: "all", snapshot: {}, lastEvents: [], selected: null };
+const $ = (id) => document.getElementById(id);
+const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
+const num = (value, digits = 0) => Number(value || 0).toFixed(digits);
+const time = (value) => { if (!value) return "—"; const date = new Date(value); return Number.isNaN(date.getTime()) ? String(value).slice(0, 19) : date.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"}); };
+const tokenHeaders = () => { const value = localStorage.getItem("oracle_token") || ""; return value ? {"X-Oracle-Token": value} : {}; };
+
+async function api(path, options = {}) {
+  const headers = {...tokenHeaders(), ...(options.headers || {})};
+  const response = await fetch(path, {...options, headers});
+  if (!response.ok) throw new Error(`${path} → ${response.status}`);
   return response.json();
 }
+function toast(message, type = "info") { const node = $("toast"); node.textContent = message; node.className = `toast show ${type}`; window.clearTimeout(toast.timer); toast.timer = window.setTimeout(() => node.className = "toast", 3600); }
+function empty(message = "No data available yet.") { return `<div class="empty-state"><span>◌</span><strong>${esc(message)}</strong></div>`; }
+function pill(value, kind = "subtle") { return `<span class="pill ${kind}">${esc(value || "—")}</span>`; }
+function severity(value) { const normalized = String(value || "INFO").toLowerCase(); return `<span class="severity severity-${normalized}">${esc(value || "INFO")}</span>`; }
 
-function renderCards(targetId, items, renderItem) {
-  const target = document.getElementById(targetId);
-  target.innerHTML = "";
-  if (!items.length) {
-    target.innerHTML = '<div class="card"><small>No data yet.</small></div>';
-    return;
-  }
-  items.forEach((item) => {
-    const node = document.createElement("div");
-    node.className = "card";
-    node.innerHTML = renderItem(item);
-    target.appendChild(node);
-  });
+function selectItem(title, data, kind = "event") {
+  state.selected = {title, data, kind};
+  $("inspector-title").textContent = title;
+  $("inspector-content").innerHTML = `<div class="inspector-kicker">${esc(kind.toUpperCase())}</div><div class="inspector-json"><pre>${esc(JSON.stringify(data, null, 2))}</pre></div><button class="button ghost full" id="copy-inspector">Copy raw JSON</button>`;
+  $("copy-inspector").onclick = async () => { await navigator.clipboard?.writeText(JSON.stringify(data, null, 2)); toast("Inspector payload copied", "success"); };
 }
-
-function renderOverview(overview) {
-  const target = document.getElementById("overview");
-  const build = overview.build_identity || {};
-  target.innerHTML = `
-    <div class="card">
-      <strong>${overview.name || "mission"}</strong>
-      <small>${overview.objective || "No objective set."}</small>
-      <div>scope: ${(overview.scope || []).join(", ") || "n/a"}</div>
-      <div>timeline depth: ${overview.timeline_depth || 0}</div>
-      <div>version: ${build.semantic_version || "unknown"} / ${build.git_hash || "unknown"} / ${build.schema_version || "unknown"}</div>
-    </div>
-    <div class="card">
-      <strong>Recent Directives</strong>
-      <div>${(overview.recent_directives || []).join("<br>") || "<small>No directives.</small>"}</div>
-    </div>
-  `;
+function setTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll(".nav-item").forEach((node) => node.classList.toggle("active", node.dataset.tab === tab));
+  document.querySelectorAll(".tab-panel").forEach((node) => node.classList.toggle("active", node.dataset.panel === tab));
+  $("breadcrumb-tab").textContent = tab.replace("-", " ").toUpperCase();
 }
-
-function renderFindings(items) {
-  renderCards("findings", items || [], (item) => `
-    <div class="finding-row">
-      <div class="finding-title">${item.title || "Untitled finding"}</div>
-      <div class="finding-meta">
-        <span class="severity severity-${(item.severity || "INFO").toLowerCase()}">${item.severity || "INFO"}</span>
-        <span>${item.host || "unknown host"}${item.port ? `:${item.port}` : ""}</span>
-        <span>confidence ${(item.confidence || 0).toFixed(2)}</span>
-        <span>${item.plugin || "unknown plugin"}</span>
-      </div>
-      <div class="finding-meta">${(item.cves || []).join(", ") || "no CVEs"} </div>
-      <div class="finding-meta">${(item.evidence_refs || []).join(", ") || "no evidence refs"} </div>
-    </div>
-  `);
+function renderPhase(phase) {
+  const phases = ["INIT", "DISCOVERY", "ENUMERATION", "ANALYSIS", "REPORTING"];
+  const index = Math.max(0, phases.indexOf(String(phase || "INIT").toUpperCase()));
+  document.querySelectorAll(".phase-step").forEach((node) => { const step = phases.indexOf(node.dataset.phase); node.classList.toggle("active", step === index); node.classList.toggle("complete", step < index); });
+  $("phase-progress").innerHTML = phases.map((item, i) => `<span class="progress-node ${i < index ? "complete" : ""} ${i === index ? "current" : ""}"><i>${i + 1}</i><b>${item}</b></span>`).join('<span class="progress-line"></span>');
 }
-
-function renderCouncil(council) {
-  renderCards("council", [council || {}], (item) => `
-    <strong>${item.mode || "deterministic"}</strong>
-    <small>backend ${item.backend || "unknown"}${item.last_arbiter ? ` • arbiter ${item.last_arbiter}` : ""}</small>
-    <div>recommendations: ${item.recommendations_seen || 0}</div>
-    <div>accepted: ${item.accepted_count || 0} • fallbacks: ${item.fallback_count || 0}</div>
-    <div>last outcome: ${item.last_decision_outcome || "n/a"}${item.last_gate_reason ? ` • ${item.last_gate_reason}` : ""}</div>
-    <div>agreement: ${item.agreement_count || 0}/${item.eligible_votes || 0}${item.is_unanimous ? " unanimous" : item.is_split_vote ? " split" : ""}</div>
-    <div>override streak: ${item.current_override_streak || 0} current • ${item.max_override_streak || 0} max</div>
-    <div>drift: rec ${item.recommendation_drift_count || 0} • final ${item.final_action_drift_count || 0} • arbiter ${item.arbiter_drift_count || 0}</div>
-    <div>alerts: ${(item.alerts || []).join(", ") || "none"}</div>
-    <div>last recommendation: ${(item.last_recommended_tool || "n/a")}${item.last_recommended_target ? ` -> ${item.last_recommended_target}` : ""}</div>
-    <div>last decision: ${(item.last_decision_tool || "n/a")}${item.last_decision_target ? ` -> ${item.last_decision_target}` : ""} (${item.last_decision_source || "unknown"})</div>
-    <div>${(item.role_breakdown || []).map((role) => `${role.role}: ${role.tool || "no tool"}${role.target ? ` -> ${role.target}` : ""} @ ${(role.confidence || 0).toFixed(2)}${role.agrees_with_arbiter ? " [arbiter]" : ""}${role.stop_reason ? ` (${role.stop_reason})` : ""}`).join("<br>") || "No council role data yet."}</div>
-    <div>${(item.recent_rounds || []).slice(0, 3).map((round) => `${round.phase || "phase"}: ${round.outcome} • ${round.tool || "n/a"}${round.target ? ` -> ${round.target}` : ""}`).join("<br>") || "No recent council rounds."}</div>
-    <div>${item.last_drift && item.last_drift.kind ? `last drift: ${item.last_drift.kind} ${item.last_drift.from || "n/a"} -> ${item.last_drift.to || "n/a"}` : "last drift: none"}</div>
-  `);
+function renderHealth(health, targetId = "health-summary") {
+  const components = Object.values(health?.components || {});
+  $(targetId).innerHTML = components.length ? components.map((item) => `<div class="health-row"><span class="status-dot ${item.status === "ok" ? "live" : "warn"}"></span><span>${esc(item.component)}</span><b>${esc(item.status)}</b></div>`).join("") : empty("No health signals reported");
 }
-
-async function refreshDashboard() {
-  const [overview, workers, approvals, liveStream, evidence, artifacts, chat] = await Promise.all([
-    fetchJson("/api/dashboard/overview"),
-    fetchJson("/api/dashboard/workers"),
-    fetchJson("/api/dashboard/approvals"),
-    fetchJson("/api/dashboard/live-stream"),
-    fetchJson("/api/dashboard/evidence"),
-    fetchJson("/api/dashboard/artifacts"),
-    fetchJson("/api/dashboard/chat"),
-  ]);
-
-  document.getElementById("mission-phase").textContent = overview.phase || "INIT";
-  document.getElementById("mission-status").textContent = overview.status || "unknown";
-  document.getElementById("metric-hosts").textContent = `${overview.stats.hosts || 0} hosts`;
-  document.getElementById("metric-findings").textContent = `${overview.stats.findings || 0} findings`;
-  document.getElementById("metric-workers").textContent = `${workers.items.length} workers`;
-  const build = overview.build_identity || {};
-  document.getElementById("build-id").textContent = `${build.semantic_version || "unknown"} • ${build.git_hash || "unknown"} • ${build.schema_version || "unknown"}`;
-  renderOverview(overview);
-  renderFindings(overview.analyst_findings || []);
+function renderActivityChart(events) {
+  const buckets = Array.from({length: 24}, () => 0);
+  events.slice(-240).forEach((item, i) => { buckets[i % buckets.length] += 1; });
+  const max = Math.max(1, ...buckets);
+  $("activity-chart").innerHTML = buckets.map((value, i) => `<span class="chart-bar" style="height:${Math.max(8, value / max * 92)}%" title="${value} events"></span>`).join("");
+}
+function findingScore(items) { return items.reduce((sum, item) => sum + Math.min(1, Number(item.confidence || 0)) * ({critical:1, high:.82, medium:.58, low:.3, info:.12}[String(item.severity || "info").toLowerCase()] || .12), 0); }
+function renderOverview(overview, workers, evidence, telemetry, events) {
+  const stats = overview.stats || {};
+  const findings = overview.analyst_findings || [];
+  const score = Math.min(100, Math.round(findingScore(findings) * 18));
+  const critical = findings.filter((x) => String(x.severity).toLowerCase() === "critical").length;
+  const elevated = findings.filter((x) => ["high", "medium"].includes(String(x.severity).toLowerCase())).length;
+  $("side-mission").textContent = overview.name || "Unnamed mission";
+  $("side-status").textContent = overview.status || "unknown";
+  $("metric-phase").textContent = overview.phase || "INIT";
+  $("metric-status").textContent = overview.status || "unknown";
+  $("metric-hosts").textContent = stats.hosts || 0;
+  $("metric-findings").textContent = findings.length;
+  $("metric-workers").textContent = workers.length;
+  $("metric-evidence").textContent = evidence.items?.length || 0;
+  $("metric-objective").textContent = overview.objective || "No objective configured";
+  $("mission-title").textContent = overview.name || "Unnamed mission";
+  $("mission-objective").textContent = overview.objective || "—";
+  $("mission-scope").textContent = (overview.scope || []).join(", ") || "loopback / lab";
+  $("mission-iteration").textContent = overview.iterations || 0;
+  $("mission-pill").textContent = String(overview.status || "unknown").toUpperCase();
+  $("mission-pill").className = `pill ${overview.status === "running" ? "success" : overview.status === "paused" ? "warning" : "subtle"}`;
+  $("threat-score").textContent = score;
+  $("critical-count").textContent = critical;
+  $("elevated-count").textContent = elevated;
+  $("graph-count").textContent = overview.attack_graph?.nodes || 0;
+  $("finding-count").textContent = findings.length;
+  $("worker-count").textContent = workers.length;
+  $("evidence-count").textContent = evidence.items?.length || 0;
+  $("version-chip").textContent = `v${overview.build_identity?.semantic_version || "4.0.0"}`;
+  renderPhase(overview.phase);
+  renderActivityChart(events);
+  renderCommandFindings(findings);
   renderCouncil(overview.council || {});
-
-  renderCards("workers", workers.items, (worker) => `
-    <strong>${worker.worker_id}</strong>
-    <small>${worker.transport} • ${worker.role}</small>
-    <div>health: ${worker.health_score}</div>
-    <div>capabilities: ${(worker.capabilities || []).join(", ")}</div>
-  `);
-
-  renderCards("approvals", approvals.items || [], (item) => `
-    <strong>${item.approval_id}</strong>
-    <small>${item.status} • ${item.requested_by}</small>
-    <div>${JSON.stringify(item.action)}</div>
-  `);
-
-  renderCards("timeline", liveStream.items || [], (item) => `
-    <strong>${item.headline || item.event_type || "event"}</strong>
-    <small>${item.channel || "system"} • ${item.priority || "info"} • ${item.created_at || ""}</small>
-    <div>${item.summary || ""}</div>
-    <div>${item.narrative || ""}</div>
-    <div>${item.operator_action ? `<em>${item.operator_action}</em>` : ""}</div>
-  `);
-
-  renderCards("attack-graph", [overview.attack_graph || {}], (item) => `
-    <strong>${item.nodes || 0} nodes / ${item.edges || 0} edges</strong>
-    <small>Top correlated paths</small>
-    <div>${(item.top_paths || []).slice(0, 3).map((path) => `${(path.path || []).join(" -> ")} (${(path.score || 0).toFixed ? path.score.toFixed(2) : path.score})`).join("<br>") || "No paths yet."}</div>
-    <small>Highest risk nodes</small>
-    <div>${(item.top_nodes || []).slice(0, 3).map((node) => `${node.label || node.id} [${node.kind || "node"}] risk ${(node.risk_score || 0).toFixed ? node.risk_score.toFixed(2) : node.risk_score}`).join("<br>") || "No weighted nodes yet."}</div>
-  `);
-
-  renderCards("replay", [overview.replay_summary || {}], (item) => `
-    <strong>${item.count || 0} replay artifacts</strong>
-    <small>latest replay ${item.latest_replay_id || "n/a"}</small>
-    <div>phase: ${item.latest_phase || "n/a"}</div>
-    <div class="artifact-path">${item.latest_artifact || "No replay artifact yet."}</div>
-  `);
-
-  renderCards("topology", [overview.topology || {}], (item) => `
-    <strong>${(item.nodes || []).length} topology nodes</strong>
-    <small>${(item.edges || []).length} topology edges</small>
-    <div>${(item.nodes || []).slice(0, 6).map((node) => `${node.kind}: ${node.label}`).join("<br>") || "No topology yet."}</div>
-  `);
-
-  renderCards("artifacts", artifacts.items || [], (item) => `
-    <strong>${item.name || item.path}</strong>
-    <small>${item.artifact_type || item.content_type || "artifact"}</small>
-    <div>${item.download_url ? `<a class="artifact-link" href="${item.download_url}">download</a>` : ""}</div>
-  `);
-
-  renderCards("chat", chat.messages || [], (item) => `
-    <strong>${item.user || "operator"}</strong>
-    <small>${item.ts || ""}</small>
-    <div>${item.text || ""}</div>
-  `);
+  renderHealth(telemetry.health);
+  renderGraph(overview.attack_graph || {});
 }
+function renderCommandFindings(items) {
+  $("command-findings").innerHTML = items.length ? items.slice(0, 5).map((item) => `<button class="compact-row" data-inspect="finding" data-index="${items.indexOf(item)}"><span class="severity-dot ${String(item.severity || "info").toLowerCase()}"></span><span class="grow"><strong>${esc(item.title || "Untitled finding")}</strong><small>${esc(item.host || "unknown host")}${item.port ? `:${item.port}` : ""}</small></span>${severity(item.severity)}</button>`).join("") : empty("No findings ranked yet");
+  $("command-findings").querySelectorAll("[data-inspect]").forEach((node) => node.onclick = () => selectItem(items[node.dataset.index].title || "Finding", items[node.dataset.index], "finding"));
+}
+function renderCouncil(item) {
+  $("council-mode").textContent = String(item.mode || "deterministic").toUpperCase();
+  $("council-summary").innerHTML = `<div class="insight-row"><span>Backend</span><strong>${esc(item.backend || "unknown")}</strong></div><div class="insight-row"><span>Recommendations</span><strong>${item.recommendations_seen || 0}</strong></div><div class="insight-row"><span>Accepted / fallback</span><strong>${item.accepted_count || 0} / ${item.fallback_count || 0}</strong></div><div class="insight-row"><span>Consensus</span><strong>${item.agreement_count || 0}/${item.eligible_votes || 0}</strong></div><div class="insight-callout">${esc(item.last_gate_reason || item.last_recommendation_reasoning || "Deterministic policy is authoritative when no advisory signal is available.")}</div>`;
+}
+function renderEvents(items) {
+  const filtered = state.filter === "all" ? items : items.filter((item) => String(item.event_type || item.type || item.topic || "").toLowerCase().includes(state.filter));
+  $("event-total").textContent = `${filtered.length} events`;
+  $("event-table").innerHTML = filtered.length ? `<div class="table-head"><span>TIME</span><span>TYPE</span><span>CHANNEL</span><span>SUMMARY</span><span>STATUS</span></div>` + filtered.slice().reverse().map((item, i) => { const payload = item.payload || item; const type = payload.type || item.event_type || item.topic || "event"; return `<button class="table-row event-row" data-event-index="${items.indexOf(item)}"><span class="mono muted">${time(payload.created_at || item.created_at)}</span><span class="event-type">${esc(type)}</span><span>${esc(payload.phase || payload.channel || item.topic || "system")}</span><span class="grow"><strong>${esc(payload.headline || payload.tool || payload.title || type)}</strong><small>${esc(payload.summary || payload.target || payload.narrative || "Event received")}</small></span><span>${payload.returncode === 0 ? pill("success", "success") : pill(payload.status || "logged", "subtle")}</span></button>`; }).join("") : empty("No matching events");
+  $("event-table").querySelectorAll("[data-event-index]").forEach((node) => node.onclick = () => selectItem("Live event", items[node.dataset.eventIndex], "event"));
+}
+function renderFindings(items) {
+  const counts = items.reduce((out, item) => { const key = String(item.severity || "INFO").toLowerCase(); out[key] = (out[key] || 0) + 1; return out; }, {});
+  $("finding-summary").innerHTML = ["critical", "high", "medium", "low"].map((key) => `<div class="summary-chip"><span class="severity-dot ${key}"></span><strong>${counts[key] || 0}</strong><small>${key}</small></div>`).join("");
+  $("finding-table").innerHTML = items.length ? `<div class="table-head finding-head"><span>RISK</span><span>FINDING</span><span>ASSET</span><span>CONFIDENCE</span><span>PLUGIN</span></div>` + items.map((item, i) => `<button class="table-row finding-row" data-finding-index="${i}"><span>${severity(item.severity)}</span><span class="grow"><strong>${esc(item.title || "Untitled finding")}</strong><small>${esc((item.cves || []).join(", ") || "No CVE reference")}</small></span><span class="mono">${esc(item.host || "unknown")}${item.port ? `:${item.port}` : ""}</span><span><div class="confidence"><i style="width:${Math.min(100, Number(item.confidence || 0) * 100)}%"></i></div>${num(Number(item.confidence || 0) * 100)}%</span><span class="mono muted">${esc(item.plugin || "—")}</span></button>`).join("") : empty("No findings collected");
+  $("finding-table").querySelectorAll("[data-finding-index]").forEach((node) => node.onclick = () => selectItem(items[node.dataset.findingIndex].title || "Finding", items[node.dataset.findingIndex], "finding"));
+}
+function renderGraph(graph) {
+  const nodes = graph.top_nodes || []; const paths = graph.top_paths || [];
+  $("graph-pill").textContent = `${graph.nodes || 0} nodes · ${graph.edges || 0} edges`;
+  $("graph-view").innerHTML = paths.length ? paths.slice(0, 5).map((path) => `<div class="path-row"><span class="path-score">${num(path.score, 2)}</span><div class="path-line">${(path.path || []).map((part, i) => `<span class="path-node">${esc(part)}</span>${i < path.path.length - 1 ? '<i>→</i>' : ''}`).join("")}</div></div>`).join("") : empty("Attack paths will appear as evidence is correlated");
+  $("risk-nodes").innerHTML = nodes.length ? nodes.map((node) => `<button class="risk-row" data-risk-index="${nodes.indexOf(node)}"><span class="node-icon">◈</span><span class="grow"><strong>${esc(node.label || node.id)}</strong><small>${esc(node.kind || "node")}</small></span><b>${num(node.risk_score, 2)}</b></button>`).join("") : empty("No weighted nodes yet");
+  $("risk-nodes").querySelectorAll("[data-risk-index]").forEach((node) => node.onclick = () => selectItem("Risk node", nodes[node.dataset.riskIndex], "attack graph"));
+}
+function renderWorkers(items) {
+  $("worker-grid").innerHTML = items.length ? items.map((worker) => `<button class="worker-card" data-worker-index="${items.indexOf(worker)}"><div class="worker-card-head"><span class="worker-orb ${worker.health_score > .7 ? "healthy" : "degraded"}">⊙</span><span>${pill(worker.role || "worker", worker.health_score > .7 ? "success" : "warning")}</span></div><strong>${esc(worker.worker_id)}</strong><small>${esc(worker.endpoint || worker.transport || "local runtime")}</small><div class="worker-meter"><i style="width:${Math.min(100, Number(worker.health_score || 0) * 100)}%"></i></div><div class="worker-foot"><span>health ${num(Number(worker.health_score || 0) * 100)}%</span><span>${esc((worker.capabilities || []).join(" · ") || "no capabilities")}</span></div></button>`).join("") : empty("No registered workers");
+  $("worker-grid").querySelectorAll("[data-worker-index]").forEach((node) => node.onclick = () => selectItem("Worker", items[node.dataset.workerIndex], "worker"));
+}
+function renderEvidence(data) {
+  const items = data.items || []; const stats = data.stats || {};
+  $("evidence-table").innerHTML = items.length ? `<div class="table-head"><span>ID</span><span>TYPE</span><span>CONTENT</span><span>CONFIDENCE</span></div>` + items.slice().reverse().map((item, i) => `<button class="table-row" data-evidence-index="${items.length - 1 - i}"><span class="mono muted">${esc(item.id || `EV-${i + 1}`)}</span><span>${esc(item.kind || item.type || "observation")}</span><span class="grow"><strong>${esc(item.title || item.summary || item.value || "Evidence item")}</strong><small>${esc(item.source || item.plugin || "runtime")}</small></span><span>${num(Number(item.confidence || 0) * 100)}%</span></button>`).join("") : empty("No evidence collected");
+  $("evidence-quality").innerHTML = `<div class="quality-score">${num(Number(stats.average_confidence || stats.mean_confidence || 0) * 100)}<small>%</small></div><p>average confidence</p><div class="quality-line"><span>items</span><b>${items.length}</b></div><div class="quality-line"><span>contradictions</span><b class="${(data.contradictions || []).length ? "red-text" : "green-text"}">${(data.contradictions || []).length}</b></div>`;
+  $("evidence-table").querySelectorAll("[data-evidence-index]").forEach((node) => node.onclick = () => selectItem("Evidence item", items[node.dataset.evidenceIndex], "evidence"));
+}
+function renderApprovals(items) { $("approval-count").textContent = items.length; $("approval-table").innerHTML = items.length ? items.map((item, i) => `<button class="approval-card" data-approval-index="${i}"><div><span class="approval-icon">✓</span><span><strong>${esc(item.approval_id || "Approval request")}</strong><small>${esc(item.requested_by || "operator")} · ${esc(item.status || "pending")}</small></span></div><code>${esc(JSON.stringify(item.action || {}, null, 2))}</code><div class="approval-actions"><span class="pill warning">requires review</span><span class="text-button">Inspect →</span></div></button>`).join("") : empty("No actions are waiting for approval"); $("approval-table").querySelectorAll("[data-approval-index]").forEach((node) => node.onclick = () => selectItem("Approval request", items[node.dataset.approvalIndex], "approval")); }
+function renderReports(items) { $("report-table").innerHTML = items.length ? `<div class="table-head"><span>ARTIFACT</span><span>TYPE</span><span>CREATED</span><span>ACTION</span></div>` + items.map((item, i) => `<div class="table-row"><span class="file-icon">▤</span><span class="grow"><strong>${esc(item.name || item.path || "artifact")}</strong><small class="mono">${esc(item.relative_path || item.path || "")}</small></span><span>${esc(item.artifact_type || item.content_type || "file")}</span><span>${item.download_url ? `<a class="button small ghost" href="${esc(item.download_url)}">Download ↗</a>` : pill("local", "subtle")}</span></div>`).join("") : empty("Reports will appear after mission output is generated"); }
+function renderTelemetry(data) { renderHealth(data.health, "telemetry-health"); const metrics = {...(data.metrics?.counters || {}), ...(data.metrics?.gauges || {})}; $("telemetry-metrics").innerHTML = Object.keys(metrics).length ? Object.entries(metrics).slice(0, 24).map(([key, value]) => `<div class="metric-card"><span class="mono">${esc(key)}</span><strong>${typeof value === "number" ? num(value, 2) : esc(value)}</strong></div>`).join("") : empty("No metrics emitted yet"); const traces = data.traces || []; $("trace-table").innerHTML = traces.length ? traces.slice(-20).reverse().map((trace) => `<div class="table-row"><span class="mono muted">${time(trace.created_at || trace.ts)}</span><span class="grow"><strong>${esc(trace.name || trace.operation || "trace")}</strong><small>${esc(trace.trace_id || trace.message || "")}</small></span><span>${pill(trace.status || "recorded", "subtle")}</span></div>`).join("") : empty("No traces buffered"); }
 
-document.getElementById("chat-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const input = document.getElementById("chat-input");
-  const text = input.value.trim();
-  if (!text) {
-    return;
-  }
-  await fetchJson("/api/dashboard/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user: "operator", text }),
-  });
-  input.value = "";
-  await refreshDashboard();
-});
+async function refresh() {
+  try {
+    const [overview, workersData, evidence, artifacts, approvals, live, telemetry] = await Promise.all([api("/api/dashboard/overview"), api("/api/dashboard/workers"), api("/api/dashboard/evidence"), api("/api/dashboard/artifacts"), api("/api/dashboard/approvals"), api("/api/dashboard/live-stream?limit=240"), api("/api/dashboard/telemetry")]);
+    const events = live.items || [];
+    state.snapshot = {overview, workers: workersData.items || [], evidence, artifacts: artifacts.items || [], approvals: approvals.items || [], events, telemetry}; state.lastEvents = events;
+    renderOverview(overview, state.snapshot.workers, evidence, telemetry, events); renderEvents(events); renderFindings(overview.analyst_findings || []); renderWorkers(state.snapshot.workers); renderEvidence(evidence); renderApprovals(state.snapshot.approvals); renderReports(state.snapshot.artifacts); renderTelemetry(telemetry);
+    $("activity-count").textContent = events.length; $("connection-label").textContent = "LIVE"; $("last-sync").textContent = new Date().toLocaleTimeString();
+  } catch (error) { $("connection-label").textContent = "OFFLINE"; toast(`Dashboard connection lost: ${error.message}`, "error"); }
+}
+async function control(action) { try { const result = await api("/api/dashboard/control", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action})}); toast(`Mission ${action} command accepted`, "success"); await refresh(); selectItem("Mission control", result, "operator action"); } catch (error) { toast(`Control failed: ${error.message}`, "error"); } }
+async function post(path, payload, label) { try { await api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}); toast(label, "success"); await refresh(); } catch (error) { toast(error.message, "error"); } }
 
-refreshDashboard().catch((error) => {
-  document.getElementById("overview").innerHTML = `<div class="card">${error.message}</div>`;
-});
-setInterval(() => refreshDashboard().catch(() => null), 5000);
+document.querySelectorAll(".nav-item").forEach((node) => node.onclick = () => setTab(node.dataset.tab));
+document.querySelectorAll("[data-tab-jump]").forEach((node) => node.onclick = () => setTab(node.dataset.tabJump));
+document.querySelectorAll("[data-control]").forEach((node) => node.onclick = () => control(node.dataset.control));
+document.querySelectorAll(".filter").forEach((node) => node.onclick = () => { state.filter = node.dataset.filter; document.querySelectorAll(".filter").forEach((item) => item.classList.toggle("active", item === node)); renderEvents(state.lastEvents); });
+$("refresh-button").onclick = refresh;
+$("export-button").onclick = () => { window.location.href = `/api/dashboard/export${token ? `?token=${encodeURIComponent(token)}` : ""}`; };
+$("close-inspector").onclick = () => { $("inspector-title").textContent = "Select an event"; $("inspector-content").innerHTML = `<div class="empty-inspector"><span class="empty-icon">◈</span><strong>Nothing selected</strong><p>Click a finding, event, worker, or evidence item to inspect its details.</p></div>`; };
+$("directive-form").onsubmit = (event) => { event.preventDefault(); const input = $("directive-input"); const text = input.value.trim(); if (text) { post("/api/dashboard/directives", {text}, "Directive recorded"); input.value = ""; } };
+$("note-form").onsubmit = (event) => { event.preventDefault(); const input = $("note-input"); const text = input.value.trim(); if (text) { post("/api/dashboard/chat", {user:"operator", text}, "Note posted"); input.value = ""; } };
+refresh();
+window.setInterval(refresh, 3500);
