@@ -8,8 +8,7 @@ A Mission's live-target scope may only come from one of two places:
      outside what was contracted" claim actually true, not just asserted.
 
   2. An explicit, opt-in, loopback-only path (ScopeGuard.for_lab()), for
-     Community-tier / local lab use where there is no contract to check
-     against by definition.
+     local lab use where there is no contract to check against by definition.
 
 The old bare `ScopeGuard(scope)` constructor is intentionally removed, not
 deprecated — a silent free-text scope path defeats the entire point of this

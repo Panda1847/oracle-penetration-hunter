@@ -307,7 +307,7 @@ The current control-plane baseline includes **197 passing Python tests**, JavaSc
 - [Installation](docs/INSTALLATION.md)
 - [Quick start](docs/QUICKSTART.md)
 - [Configuration](docs/CONFIGURATION.md)
-- [Architecture](docs/ARCHITECTURE.md)
+- [Architecture](docs/architecture.md)
 - [API reference](docs/API.md)
 - [Mission lifecycle](docs/mission_lifecycle.md)
 - [Plugin SDK](docs/plugin_sdk.md)
