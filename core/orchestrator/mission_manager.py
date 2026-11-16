@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 import random
+import threading
 import time
 from dataclasses import asdict, replace
 from typing import Any, Callable, Iterator, Optional
@@ -109,8 +110,64 @@ class MissionManager:
         self._state_hash = ""
         self._canonical_reporting: dict[str, Any] | None = None
         self._active_replay_context: dict[str, str] | None = None
+        self._control_lock = threading.RLock()
+        self._control_version = 0
         self.mission.phase = self.state_machine.normalize(self.mission.phase).value
         self.health.report("mission_manager", "ok", {"mission": self.mission.name, "runtime_mode": self.runtime_mode})
+
+    def request_control(
+        self,
+        action: str,
+        *,
+        actor: str = "operator",
+        reason: str = "",
+        command_id: str | None = None,
+        expected_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Apply an idempotent operator command to the live mission runtime."""
+        action = str(action or "").strip().lower()
+        targets = {"pause": "paused", "resume": "running", "stop": "stopped"}
+        if action not in targets:
+            raise ValueError("action must be pause, resume, or stop")
+        with self._control_lock:
+            if expected_version is not None and int(expected_version) != self._control_version:
+                raise RuntimeError("control state version is stale")
+            previous = str(getattr(self.mission, "status", "running") or "running")
+            target = targets[action]
+            if previous == target:
+                outcome = "already_applied"
+            elif action == "pause" and previous == "running":
+                outcome = "applied"
+            elif action == "resume" and previous == "paused":
+                outcome = "applied"
+            elif action == "stop" and previous in {"running", "paused"}:
+                outcome = "applied"
+            else:
+                raise RuntimeError(f"invalid transition: {previous} -> {target}")
+
+            if outcome == "applied":
+                self.mission.status = target
+                self._control_version += 1
+            command = {
+                "type": "operator_control",
+                "action": action,
+                "outcome": outcome,
+                "actor": str(actor or "operator"),
+                "reason": str(reason or ""),
+                "command_id": str(command_id or uuid4().hex),
+                "previous_status": previous,
+                "status": str(self.mission.status),
+                "control_version": self._control_version,
+            }
+            cancelled = 0
+            if action == "stop" and outcome == "applied":
+                cancel = getattr(self.executor, "cancel_active", None)
+                if callable(cancel):
+                    cancelled = int(cancel() or 0)
+            command["cancelled_jobs"] = cancelled
+            self.event_bus.publish("operator_control", command, trace_id=self.tracer.new_trace_id("operator_control"))
+            self._audit_log("operator_control", command)
+            return command
 
     def _emit(self, payload: dict, trace_id: str):
         self.event_bus.publish(payload.get("type", "event"), payload, trace_id=trace_id)

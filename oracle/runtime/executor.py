@@ -82,6 +82,13 @@ class Executor:
                 except Exception:
                     pass
 
+    def cancel_active(self) -> int:
+        """Terminate currently running local process groups and return the count."""
+        with self._lock:
+            count = len(self._running)
+        self.terminate_all()
+        return count
+
     def build_command(self, action: Action) -> str:
         """Return the shell command string for a given action (without running it)."""
         plugin = self.registry.get(action.tool)

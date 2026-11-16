@@ -31,6 +31,7 @@ def _frontend_dir() -> Path:
 def create_gateway(
     *,
     mission=None,
+    manager=None,
     graph=None,
     dispatcher=None,
     plugin_registry=None,
@@ -350,6 +351,20 @@ def create_gateway(
         transitions = {"pause": "paused", "resume": "running", "stop": "stopped"}
         if action not in transitions:
             return jsonify({"error": "action must be pause, resume, or stop"}), 400
+        if manager is not None and hasattr(manager, "request_control"):
+            try:
+                result = manager.request_control(
+                    action,
+                    actor=str(payload.get("actor", "operator")),
+                    reason=str(payload.get("reason", "")),
+                    command_id=payload.get("command_id"),
+                    expected_version=payload.get("expected_version"),
+                )
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+            except RuntimeError as exc:
+                return jsonify({"error": str(exc)}), 409
+            return jsonify({"ok": True, **result}), 200
         mission.status = transitions[action]
         graph.add_directive(f"Operator command: {action}")
         return jsonify({"ok": True, "action": action, "status": mission.status}), 200
@@ -377,6 +392,7 @@ def run_gateway(
     graph,
     mission,
     *,
+    manager=None,
     dispatcher=None,
     plugin_registry=None,
     event_bus=None,
@@ -386,6 +402,7 @@ def run_gateway(
 ):
     app = create_gateway(
         mission=mission,
+        manager=manager,
         graph=graph,
         dispatcher=dispatcher,
         plugin_registry=plugin_registry,

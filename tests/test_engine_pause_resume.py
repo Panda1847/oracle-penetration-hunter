@@ -58,3 +58,30 @@ def test_engine_pause_resume_does_not_complete(tmp_path):
 
     assert mission.status == "stopped"
 
+
+def test_engine_control_state_machine_is_idempotent_and_fail_closed(tmp_path):
+    mission = Mission(name="control", scope=["127.0.0.1"], max_iterations=1)
+    graph = KnowledgeGraph(mission.name, Storage(tmp_path))
+    engine = MissionEngine(
+        mission=mission,
+        graph=graph,
+        ai=_StubAI(),
+        executor=_StubExecutor(),
+        safety=_StubSafety(),
+    )
+
+    paused = engine.request_control("pause", actor="alice", reason="review")
+    assert paused["outcome"] == "applied"
+    assert paused["status"] == "paused"
+    assert engine.request_control("pause")["outcome"] == "already_applied"
+    assert engine.request_control("resume")["status"] == "running"
+    stopped = engine.request_control("stop", command_id="cmd-1")
+    assert stopped["status"] == "stopped"
+    assert stopped["control_version"] == 3
+
+    try:
+        engine.request_control("resume")
+    except RuntimeError as exc:
+        assert "invalid transition" in str(exc)
+    else:
+        raise AssertionError("resume after stop must be rejected")

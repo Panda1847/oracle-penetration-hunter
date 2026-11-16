@@ -408,6 +408,7 @@ def run_live(args):
             auth_user=(args.web_auth_user or ""),
             auth_pass=(args.web_auth_pass or ""),
             plugin_registry=registry,
+            manager=engine,
             dispatcher=getattr(engine, "dispatcher", None),
             event_bus=getattr(engine, "event_bus", None),
             artifact_router=getattr(engine, "artifact_router", None),
@@ -477,6 +478,7 @@ def _start_web(
     mission,
     port: int = 5000,
     *,
+    manager=None,
     auth_token: str = "",
     auth_user: str = "",
     auth_pass: str = "",
@@ -491,6 +493,7 @@ def _start_web(
 
         app = create_gateway(
             mission=mission,
+            manager=manager,
             graph=graph,
             dispatcher=dispatcher,
             plugin_registry=plugin_registry,

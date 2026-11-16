@@ -1,5 +1,7 @@
 """ORACLE — Tests  (tests/test_executor.py)"""
 import sys
+import threading
+import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -112,6 +114,39 @@ def test_executor_build_command():
     cmd = ex.build_command(action)
     assert "nmap" in cmd
     assert "127.0.0.1" in cmd
+
+
+def test_executor_cancel_active_terminates_process_group():
+    from oracle.plugins.base import ToolPlugin
+
+    class SlowPlugin(ToolPlugin):
+        name = "slow"
+        description = "safe cancellation fixture"
+        category = "util"
+        requires_binary = None
+
+        def build(self, target, args):
+            return "sleep 30"
+
+        def parse(self, stdout, stderr):
+            return {"status": "ok", "data": {}}
+
+    registry = make_registry()
+    registry._plugins["slow"] = SlowPlugin()
+    executor = Executor(registry)
+    action = Action(tool="slow", target="127.0.0.1", args={}, timeout=60)
+    result = []
+    thread = threading.Thread(target=lambda: result.append(executor.run(action)))
+    thread.start()
+    for _ in range(100):
+        if executor._running:
+            break
+        time.sleep(0.01)
+    assert executor._running
+    assert executor.cancel_active() == 1
+    thread.join(timeout=3)
+    assert not thread.is_alive()
+    assert result and result[0].returncode != 0
 """ORACLE — Tests  (tests/test_graph.py)"""
 
 
