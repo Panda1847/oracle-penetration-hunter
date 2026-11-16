@@ -48,6 +48,15 @@ class EventStream:
         with self._lock:
             self._subs.setdefault(topic, []).append(callback)
 
+        def unsubscribe() -> None:
+            with self._lock:
+                callbacks = self._subs.get(topic, [])
+                self._subs[topic] = [item for item in callbacks if item is not callback]
+                if not self._subs[topic]:
+                    self._subs.pop(topic, None)
+
+        return unsubscribe
+
     def timeline(self, topic: Optional[str] = None, limit: int = 200) -> List[Dict[str, Any]]:
         with self._lock:
             events = list(self._events)

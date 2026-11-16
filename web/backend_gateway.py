@@ -5,18 +5,19 @@ from __future__ import annotations
 import base64
 from collections import defaultdict, deque
 import json
+from queue import Empty, Full, Queue
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory, stream_with_context
 
 from api.evidence import evidence_snapshot
 from api.missions import mission_snapshot, mission_timeline
 from api.plugins import plugin_snapshot
 from api.reports import report_snapshot
-from dashboard.live_stream import build_live_stream
+from dashboard.live_stream import build_live_item, build_live_stream
 from api.workers import worker_snapshot
 from telemetry.health import GLOBAL_HEALTH
 from telemetry.metrics import GLOBAL_METRICS
@@ -148,6 +149,94 @@ def create_gateway(
             return auth
         limit = int(request.args.get("limit", 200) or 200)
         return jsonify(build_live_stream(mission=mission, graph=graph, event_bus=event_bus, limit=limit))
+
+    @app.get("/api/dashboard/events")
+    def dashboard_events():
+        auth = _require_auth()
+        if auth is not None:
+            return auth
+        if event_bus is None:
+            return jsonify({"error": "event stream unavailable"}), 503
+
+        max_replay = 240
+        try:
+            requested_limit = int(request.args.get("limit", max_replay) or max_replay)
+        except (TypeError, ValueError):
+            requested_limit = max_replay
+        limit = max(1, min(requested_limit, max_replay))
+        last_event_id = (request.headers.get("Last-Event-ID") or "").strip()
+        pending: Queue = Queue(maxsize=256)
+        overflowed = threading.Event()
+
+        def on_event(message):
+            try:
+                pending.put_nowait(message)
+            except Full:
+                overflowed.set()
+
+        unsubscribe = event_bus.subscribe_envelopes(on_event)
+        replay = event_bus.timeline(limit=limit)
+        replay_ids = {str(item.get("event_id", "")) for item in replay}
+        replay_start = 0
+        if last_event_id:
+            for index, item in enumerate(replay):
+                if str(item.get("event_id", "")) == last_event_id:
+                    replay_start = index + 1
+                    break
+            else:
+                replay = []
+
+        def frame(data, *, event=None, event_id=None):
+            lines = []
+            if event_id:
+                lines.append(f"id: {event_id}")
+            if event:
+                lines.append(f"event: {event}")
+            lines.append(f"data: {json.dumps(data, sort_keys=True, separators=(',', ':'))}")
+            return "\n".join(lines) + "\n\n"
+
+        @stream_with_context
+        def generate():
+            sent_ids = set()
+            try:
+                if last_event_id and not replay and last_event_id not in replay_ids:
+                    yield frame({"reason": "event_id_outside_replay_window"}, event="resync")
+                else:
+                    for raw in replay[replay_start:]:
+                        event_id = str(raw.get("event_id", ""))
+                        if event_id:
+                            sent_ids.add(event_id)
+                        item = build_live_item(raw)
+                        yield frame(item, event=item["event_type"], event_id=event_id)
+
+                while True:
+                    if overflowed.is_set():
+                        overflowed.clear()
+                        yield frame({"reason": "subscriber_queue_overflow"}, event="resync")
+                    try:
+                        message = pending.get(timeout=15)
+                    except Empty:
+                        yield ": keepalive\n\n"
+                        continue
+                    raw = message.to_dict()
+                    event_id = str(raw.get("event_id", ""))
+                    if event_id in sent_ids:
+                        continue
+                    sent_ids.add(event_id)
+                    item = build_live_item(raw)
+                    yield frame(item, event=item["event_type"], event_id=event_id)
+            finally:
+                unsubscribe()
+
+        return Response(
+            generate(),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.get("/api/dashboard/workers")
     def workers():

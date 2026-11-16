@@ -322,6 +322,26 @@ def _fallback_items(graph, limit: int) -> List[Dict[str, Any]]:
     return items
 
 
+def build_live_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    topic = str(item.get("topic", item.get("type", "event")) or "event")
+    payload = _normalize_value(item.get("payload", item))
+    channel = _channel_for_event(topic, payload)
+    return {
+        "stream_id": str(item.get("event_id", item.get("stream_id", item.get("created_at", ""))) or ""),
+        "channel": channel,
+        "event_type": str(payload.get("type", topic) or topic),
+        "headline": _headline(topic, payload, channel),
+        "summary": _summary(topic, payload, channel),
+        "priority": _priority(topic, payload, channel),
+        "operator_action": _operator_action(topic, payload, channel),
+        "narrative": _narrative(topic, payload, channel),
+        "phase": str(payload.get("phase", "") or ""),
+        "created_at": str(item.get("created_at", payload.get("ts", "")) or ""),
+        "trace_id": str(item.get("trace_id", payload.get("trace_id", "")) or ""),
+        "details": _details(payload),
+    }
+
+
 def build_live_stream(*, mission=None, graph=None, event_bus=None, limit: int = 200) -> Dict[str, Any]:
     raw_items: Iterable[Dict[str, Any]]
     if event_bus is not None:
@@ -333,26 +353,10 @@ def build_live_stream(*, mission=None, graph=None, event_bus=None, limit: int = 
     counts = {"thinking": 0, "decision": 0, "evidence": 0, "graph_change": 0, "finding": 0, "system": 0}
 
     for item in raw_items:
-        topic = str(item.get("topic", item.get("type", "event")) or "event")
-        payload = _normalize_value(item.get("payload", item))
-        channel = _channel_for_event(topic, payload)
+        live_item = build_live_item(item)
+        channel = live_item["channel"]
         counts[channel] = counts.get(channel, 0) + 1
-        items.append(
-            {
-                "stream_id": str(item.get("event_id", item.get("stream_id", item.get("created_at", ""))) or ""),
-                "channel": channel,
-                "event_type": str(payload.get("type", topic) or topic),
-                "headline": _headline(topic, payload, channel),
-                "summary": _summary(topic, payload, channel),
-                "priority": _priority(topic, payload, channel),
-                "operator_action": _operator_action(topic, payload, channel),
-                "narrative": _narrative(topic, payload, channel),
-                "phase": str(payload.get("phase", "") or ""),
-                "created_at": str(item.get("created_at", payload.get("ts", "")) or ""),
-                "trace_id": str(item.get("trace_id", payload.get("trace_id", "")) or ""),
-                "details": _details(payload),
-            }
-        )
+        items.append(live_item)
 
     return {
         "mission": str(getattr(mission, "name", "") or ""),

@@ -152,6 +152,43 @@ def test_control_plane_gateway_blocks_remote_when_auth_missing(tmp_path):
     assert remote.status_code == 401
 
 
+def test_control_plane_gateway_sse_replays_live_envelopes(tmp_path):
+    mission = Mission(name="cp-events", scope=["127.0.0.1"])
+    graph = KnowledgeGraph(mission.name, Storage(tmp_path))
+    event_bus = EventBus()
+    message = event_bus.publish("finding", {"type": "finding", "finding": {"title": "Demo", "severity": "HIGH", "host": "127.0.0.1"}}, trace_id="trace-events")
+    app = create_gateway(mission=mission, graph=graph, event_bus=event_bus)
+    client = app.test_client()
+
+    response = client.get("/api/dashboard/events?limit=999999", buffered=False)
+    try:
+        assert response.status_code == 200
+        assert response.content_type.startswith("text/event-stream")
+        assert response.headers["Cache-Control"] == "no-cache, no-store, must-revalidate"
+        first = next(response.response).decode()
+        assert f"id: {message['event_id']}" in first
+        assert "event: finding" in first
+        assert '"stream_id"' in first
+        live_message = event_bus.publish("mission.event", {"type": "mission.event", "status": "running"}, trace_id="trace-live")
+        second = next(response.response).decode()
+        assert f"id: {live_message['event_id']}" in second
+        assert "event: mission.event" in second
+    finally:
+        response.close()
+
+    remote = client.get("/api/dashboard/events", environ_base={"REMOTE_ADDR": "10.10.10.20"})
+    assert remote.status_code == 401
+
+    latest = event_bus.publish("mission.event", {"type": "mission.event", "status": "running"}, trace_id="trace-latest")
+    response = client.get("/api/dashboard/events", headers={"Last-Event-ID": "expired-event"}, buffered=False)
+    try:
+        assert response.status_code == 200
+        assert "event: resync" in next(response.response).decode()
+    finally:
+        response.close()
+    assert latest["event_id"]
+
+
 def test_control_plane_gateway_token_auth_and_rate_limit(tmp_path):
     mission = Mission(name="cp-rate", scope=["127.0.0.1"])
     graph = KnowledgeGraph(mission.name, Storage(tmp_path))

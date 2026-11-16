@@ -24,6 +24,10 @@ class EventBus:
     def subscribe(self, event: str, callback: Callable):
         self.queue.subscribe(event, lambda message: callback(message.get("payload", {})))
 
+    def subscribe_envelopes(self, callback: Callable):
+        """Subscribe to every retained-stream envelope and return an unsubscribe hook."""
+        return self.stream.subscribe("*", callback)
+
     def publish(self, event: str, payload, trace_id: str = ""):
         message = self.queue.publish(event, payload, trace_id=trace_id or self.tracer.new_trace_id(event))
         self.metrics.inc("mission_events_total", labels={"topic": event})

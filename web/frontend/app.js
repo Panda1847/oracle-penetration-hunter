@@ -2,7 +2,7 @@ const params = new URLSearchParams(window.location.search);
 const token = params.get("token");
 if (token) localStorage.setItem("oracle_token", token);
 
-const state = { tab: "command", filter: "all", snapshot: {}, lastEvents: [], selected: null };
+const state = { tab: "command", filter: "all", snapshot: {}, lastEvents: [], selected: null, streamStarted: false, streamConnected: false, streamRetry: null, streamAbort: null };
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
 const num = (value, digits = 0) => Number(value || 0).toFixed(digits);
@@ -14,6 +14,71 @@ async function api(path, options = {}) {
   const response = await fetch(path, {...options, headers});
   if (!response.ok) throw new Error(`${path} → ${response.status}`);
   return response.json();
+}
+function updateEventState(events) {
+  state.lastEvents = events.slice(-240);
+  state.snapshot.events = state.lastEvents;
+  renderActivityChart(state.lastEvents);
+  renderEvents(state.lastEvents);
+  $("activity-count").textContent = state.lastEvents.length;
+  $("last-sync").textContent = new Date().toLocaleTimeString();
+}
+function handleStreamEvent(eventName, payload) {
+  if (eventName === "resync") {
+    state.lastEvents = [];
+    state.snapshot.events = [];
+    renderEvents([]);
+    refresh();
+    return;
+  }
+  if (!payload || !payload.stream_id) return;
+  const next = state.lastEvents.filter((item) => item.stream_id !== payload.stream_id);
+  next.push(payload);
+  updateEventState(next);
+}
+function parseSseBlock(block) {
+  const fields = {};
+  block.split("\n").forEach((line) => {
+    const separator = line.indexOf(":");
+    if (separator < 0) return;
+    const key = line.slice(0, separator);
+    const value = line.slice(separator + 1).trimStart();
+    fields[key] = fields[key] ? `${fields[key]}\n${value}` : value;
+  });
+  if (!fields.data) return;
+  try { handleStreamEvent(fields.event || "message", JSON.parse(fields.data)); } catch (_) { /* malformed events are ignored; polling will recover */ }
+}
+async function consumeEventStream() {
+  const response = await fetch("/api/dashboard/events?limit=240", {headers: {...tokenHeaders(), "Accept": "text/event-stream"}, cache: "no-store"});
+  if (!response.ok || !response.body) throw new Error(`event stream → ${response.status}`);
+  state.streamConnected = true;
+  $("connection-label").textContent = "LIVE STREAM";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() || "";
+    blocks.filter((block) => block.trim() && !block.trimStart().startsWith(":" )).forEach(parseSseBlock);
+  }
+  throw new Error("event stream disconnected");
+}
+function connectEventStream() {
+  if (state.streamStarted) return;
+  state.streamStarted = true;
+  const run = async () => {
+    try { await consumeEventStream(); }
+    catch (error) {
+      state.streamConnected = false;
+      $("connection-label").textContent = "RECONNECTING";
+      if (state.streamRetry) window.clearTimeout(state.streamRetry);
+      state.streamRetry = window.setTimeout(() => { state.streamStarted = false; connectEventStream(); }, 1800);
+    }
+  };
+  run();
 }
 function toast(message, type = "info") { const node = $("toast"); node.textContent = message; node.className = `toast show ${type}`; window.clearTimeout(toast.timer); toast.timer = window.setTimeout(() => node.className = "toast", 3600); }
 function empty(message = "No data available yet.") { return `<div class="empty-state"><span>◌</span><strong>${esc(message)}</strong></div>`; }
@@ -128,11 +193,13 @@ function renderTelemetry(data) { renderHealth(data.health, "telemetry-health"); 
 
 async function refresh() {
   try {
-    const [overview, workersData, evidence, artifacts, approvals, live, telemetry] = await Promise.all([api("/api/dashboard/overview"), api("/api/dashboard/workers"), api("/api/dashboard/evidence"), api("/api/dashboard/artifacts"), api("/api/dashboard/approvals"), api("/api/dashboard/live-stream?limit=240"), api("/api/dashboard/telemetry")]);
+    const liveRequest = state.streamConnected ? Promise.resolve({items: state.lastEvents}) : api("/api/dashboard/live-stream?limit=240");
+    const [overview, workersData, evidence, artifacts, approvals, live, telemetry] = await Promise.all([api("/api/dashboard/overview"), api("/api/dashboard/workers"), api("/api/dashboard/evidence"), api("/api/dashboard/artifacts"), api("/api/dashboard/approvals"), liveRequest, api("/api/dashboard/telemetry")]);
     const events = live.items || [];
     state.snapshot = {overview, workers: workersData.items || [], evidence, artifacts: artifacts.items || [], approvals: approvals.items || [], events, telemetry}; state.lastEvents = events;
     renderOverview(overview, state.snapshot.workers, evidence, telemetry, events); renderEvents(events); renderFindings(overview.analyst_findings || []); renderWorkers(state.snapshot.workers); renderEvidence(evidence); renderApprovals(state.snapshot.approvals); renderReports(state.snapshot.artifacts); renderTelemetry(telemetry);
-    $("activity-count").textContent = events.length; $("connection-label").textContent = "LIVE"; $("last-sync").textContent = new Date().toLocaleTimeString();
+    $("activity-count").textContent = events.length; $("connection-label").textContent = state.streamConnected ? "LIVE STREAM" : "LIVE"; $("last-sync").textContent = new Date().toLocaleTimeString();
+    connectEventStream();
   } catch (error) { $("connection-label").textContent = "OFFLINE"; toast(`Dashboard connection lost: ${error.message}`, "error"); }
 }
 async function control(action) { try { const result = await api("/api/dashboard/control", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action})}); toast(`Mission ${action} command accepted`, "success"); await refresh(); selectItem("Mission control", result, "operator action"); } catch (error) { toast(`Control failed: ${error.message}`, "error"); } }
