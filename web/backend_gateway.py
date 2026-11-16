@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 from collections import defaultdict, deque
 from dataclasses import asdict
+import ipaddress
 import json
 from queue import Empty, Full, Queue
 import threading
@@ -414,6 +415,65 @@ def create_gateway(
         mission.status = transitions[action]
         graph.add_directive(f"Operator command: {action}")
         return jsonify({"ok": True, "action": action, "status": mission.status}), 200
+
+    @app.post("/api/dashboard/mission/preflight")
+    def mission_preflight():
+        auth = _require_auth()
+        if auth is not None:
+            return auth
+        payload = request.get_json() or {}
+        objective = str(payload.get("objective", "")).strip()
+        scope = payload.get("scope")
+        if isinstance(scope, str):
+            scope = [item.strip() for item in scope.split(",") if item.strip()]
+        if not objective or len(objective) > 500:
+            return jsonify({"ok": False, "error": "objective is required and must be 500 characters or fewer"}), 400
+        if not isinstance(scope, list) or not scope or len(scope) > 32:
+            return jsonify({"ok": False, "error": "scope must contain between 1 and 32 targets"}), 400
+        profile = str(payload.get("profile", "normal")).strip().lower()
+        if profile not in {"stealth", "normal", "aggressive"}:
+            return jsonify({"ok": False, "error": "profile must be stealth, normal, or aggressive"}), 400
+        try:
+            max_iterations = int(payload.get("max_iterations", 30))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "max_iterations must be an integer"}), 400
+        if not 1 <= max_iterations <= 30:
+            return jsonify({"ok": False, "error": "max_iterations must be between 1 and 30"}), 400
+
+        def is_loopback(target: str) -> bool:
+            value = str(target).strip().lower()
+            if value in {"localhost", "localhost/32"}:
+                return True
+            try:
+                if "/" in value:
+                    return ipaddress.ip_network(value, strict=False).is_loopback
+                return ipaddress.ip_address(value).is_loopback
+            except ValueError:
+                return False
+
+        normalized_scope = [str(item).strip() for item in scope if str(item).strip()]
+        if not normalized_scope or not all(is_loopback(item) for item in normalized_scope):
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "dashboard launcher is limited to loopback lab scope; signed engagement launch must use the CLI",
+                    "authorization": "signed_engagement_required",
+                }
+            ), 403
+        result = {
+            "ok": True,
+            "ready": True,
+            "authorization": "loopback_lab",
+            "objective": objective,
+            "scope": normalized_scope,
+            "profile": profile,
+            "max_iterations": max_iterations,
+            "execution": "preflight_only",
+            "next_step": "Start the authorized lab mission through the local runner.",
+        }
+        if event_bus is not None:
+            event_bus.publish("mission_preflight", {"type": "mission_preflight", **result}, trace_id="dashboard-preflight")
+        return jsonify(result), 200
 
     @app.get("/api/dashboard/export")
     def export_snapshot():

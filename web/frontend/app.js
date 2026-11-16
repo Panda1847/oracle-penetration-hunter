@@ -213,12 +213,22 @@ async function refresh() {
 }
 async function control(action) { try { const result = await api("/api/dashboard/control", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action})}); toast(`Mission ${action} command accepted`, "success"); await refresh(); selectItem("Mission control", result, "operator action"); } catch (error) { toast(`Control failed: ${error.message}`, "error"); } }
 async function post(path, payload, label) { try { await api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}); toast(label, "success"); await refresh(); } catch (error) { toast(error.message, "error"); } }
+function openLauncher() {
+  if ($("launcher-drawer")) return;
+  const defaults = state.snapshot.overview || {};
+  const drawer = document.createElement("div"); drawer.id = "launcher-drawer"; drawer.className = "launcher-backdrop";
+  drawer.innerHTML = `<section class="launcher-drawer" role="dialog" aria-modal="true" aria-labelledby="launcher-title"><div class="panel-head"><div><span class="eyebrow">MISSION PREFLIGHT</span><h2 id="launcher-title">Prepare a lab mission</h2></div><button class="icon-button" id="launcher-close" type="button" aria-label="Close launcher">×</button></div><p class="launcher-note">The dashboard launcher is restricted to loopback lab scope. Signed live engagements must be started through the authorized CLI workflow.</p><form id="launcher-form"><label for="launch-objective">Objective</label><textarea id="launch-objective" maxlength="500" required>${esc(defaults.objective || "Identify reachable services in the local lab")}</textarea><label for="launch-scope">Scope</label><input id="launch-scope" value="127.0.0.1" required><div class="launcher-grid"><div><label for="launch-profile">Profile</label><select id="launch-profile"><option>normal</option><option>stealth</option><option>aggressive</option></select></div><div><label for="launch-iterations">Max iterations</label><input id="launch-iterations" type="number" min="1" max="30" value="${esc(defaults.max_iterations || 10)}"></div></div><div class="launcher-review" id="launcher-review">Preflight validates scope and execution limits before any runtime action.</div><div class="launcher-actions"><button class="button ghost" id="launcher-cancel" type="button">Cancel</button><button class="button primary" type="submit">Run preflight</button></div></form></section>`;
+  document.body.appendChild(drawer);
+  const close = () => drawer.remove(); $("launcher-close").onclick = close; $("launcher-cancel").onclick = close;
+  $("launcher-form").onsubmit = async (event) => { event.preventDefault(); const payload = {objective: $("launch-objective").value.trim(), scope: $("launch-scope").value, profile: $("launch-profile").value, max_iterations: Number($("launch-iterations").value)}; const review = $("launcher-review"); review.textContent = "Validating scope, profile, and authorization…"; try { const result = await api("/api/dashboard/mission/preflight", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)}); review.textContent = `${result.authorization}: ${result.next_step}`; selectItem("Mission preflight", result, "launcher"); toast("Mission preflight passed", "success"); } catch (error) { review.textContent = `Preflight blocked: ${error.message}`; toast("Mission preflight blocked", "error"); } };
+}
 
 document.querySelectorAll(".nav-item").forEach((node) => node.onclick = () => setTab(node.dataset.tab));
 document.querySelectorAll("[data-tab-jump]").forEach((node) => node.onclick = () => setTab(node.dataset.tabJump));
 document.querySelectorAll("[data-control]").forEach((node) => node.onclick = () => control(node.dataset.control));
 document.querySelectorAll(".filter").forEach((node) => node.onclick = () => { state.filter = node.dataset.filter; document.querySelectorAll(".filter").forEach((item) => item.classList.toggle("active", item === node)); renderEvents(state.lastEvents); });
 $("refresh-button").onclick = refresh;
+$("launcher-button").onclick = openLauncher;
 $("graph-filter").onchange = (event) => { state.graphFilter = event.target.value; renderGraph(state.snapshot.overview?.attack_graph || {}); };
 $("graph-zoom-in").onclick = () => { state.graphZoom = Math.min(2.4, state.graphZoom + .2); renderGraph(state.snapshot.overview?.attack_graph || {}); };
 $("graph-zoom-out").onclick = () => { state.graphZoom = Math.max(.6, state.graphZoom - .2); renderGraph(state.snapshot.overview?.attack_graph || {}); };

@@ -152,6 +152,35 @@ def test_control_plane_gateway_blocks_remote_when_auth_missing(tmp_path):
     assert remote.status_code == 401
 
 
+def test_mission_preflight_accepts_loopback_lab_scope(tmp_path):
+    mission = Mission(name="cp-preflight", scope=["127.0.0.1"])
+    graph = KnowledgeGraph(mission.name, Storage(tmp_path))
+    client = create_gateway(mission=mission, graph=graph).test_client()
+
+    response = client.post(
+        "/api/dashboard/mission/preflight",
+        json={"objective": "Enumerate local lab services", "scope": "127.0.0.1", "profile": "normal", "max_iterations": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["authorization"] == "loopback_lab"
+    assert response.get_json()["execution"] == "preflight_only"
+
+
+def test_mission_preflight_rejects_unsigned_non_loopback_scope(tmp_path):
+    mission = Mission(name="cp-preflight-remote", scope=["127.0.0.1"])
+    graph = KnowledgeGraph(mission.name, Storage(tmp_path))
+    client = create_gateway(mission=mission, graph=graph).test_client()
+
+    response = client.post(
+        "/api/dashboard/mission/preflight",
+        json={"objective": "Inspect remote target", "scope": ["10.10.10.20"], "profile": "normal", "max_iterations": 5},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["authorization"] == "signed_engagement_required"
+
+
 def test_control_plane_gateway_sse_replays_live_envelopes(tmp_path):
     mission = Mission(name="cp-events", scope=["127.0.0.1"])
     graph = KnowledgeGraph(mission.name, Storage(tmp_path))
