@@ -55,6 +55,13 @@ def test_response_validator_rejects_unlisted_candidate():
     assert result is None
 
 
+def test_response_validator_rejects_invalid_confidence():
+    validator = RecommendationValidator()
+    candidate = [Action(tool="nmap", target="10.0.0.1", args={})]
+    for confidence in (-0.1, 1.1, "not-a-number", float("nan")):
+        assert validator.validate({"action": {"tool": "nmap", "target": "10.0.0.1"}, "confidence": confidence}, candidate) is None
+
+
 def test_response_validator_preserves_council_metadata():
     validator = RecommendationValidator()
     result = validator.validate(
@@ -95,6 +102,8 @@ def test_ai_advisor_prompt_includes_attack_graph_summary():
     assert recommendation is not None
     assert "ATTACK GRAPH SUMMARY:" in recorder.last_extra
     assert "'candidate_count': 1" in recorder.last_extra
+    assert "UNTRUSTED OBSERVATION DATA BEGINS" in recorder.last_extra
+    assert "stop_reason" in recorder.last_extra
 
 
 def test_ai_advisor_preserves_council_metadata():

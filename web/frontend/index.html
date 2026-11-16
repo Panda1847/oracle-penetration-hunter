@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-lockup"><div class="brand-mark">O</div><div><strong>Oracle</strong><span>Penetration Hunter</span></div></div>
@@ -36,7 +37,7 @@
       <div class="sidebar-footer"><span class="status-dot live"></span> secure loopback session <span class="mono" id="version-chip">v4.0.0</span></div>
     </aside>
 
-    <main class="workspace">
+    <main class="workspace" id="workspace" tabindex="-1">
       <header class="topbar"><div class="breadcrumb"><span class="crumb-home">ORACLE</span><span>/</span><span id="breadcrumb-tab">COMMAND CENTER</span></div><div class="connection"><span class="status-dot live"></span><span id="connection-label">LIVE</span><span class="mono" id="last-sync">--:--:--</span></div><div class="top-actions"><button class="icon-button" id="refresh-button" title="Refresh now">↻</button><button class="export-button" id="export-button">Export snapshot <span>↗</span></button></div></header>
       <section class="telemetry-strip"><div class="strip-cell"><span class="strip-label">PHASE</span><strong class="cyan" id="metric-phase">INIT</strong><span class="strip-sub" id="metric-status">—</span></div><div class="strip-cell"><span class="strip-label">HOSTS</span><strong id="metric-hosts">0</strong><span class="strip-sub">discovered</span></div><div class="strip-cell"><span class="strip-label">FINDINGS</span><strong class="amber" id="metric-findings">0</strong><span class="strip-sub">ranked</span></div><div class="strip-cell"><span class="strip-label">WORKERS</span><strong id="metric-workers">0</strong><span class="strip-sub">connected</span></div><div class="strip-cell"><span class="strip-label">EVIDENCE</span><strong id="metric-evidence">0</strong><span class="strip-sub">items</span></div><div class="strip-cell wide-strip"><span class="strip-label">MISSION OBJECTIVE</span><strong class="objective" id="metric-objective">Waiting for mission data</strong></div></section>
       <section id="toast" class="toast" aria-live="polite"></section>

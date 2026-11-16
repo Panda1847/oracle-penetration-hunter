@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Dict
 
 
@@ -24,12 +25,18 @@ class RecommendationValidator:
             allowed = {(candidate.tool, candidate.target) for candidate in candidates}
             if (str(tool), str(target)) not in allowed:
                 return None
+        try:
+            confidence = float(data.get("confidence", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+            return None
         validated = {
             "tool": str(tool),
             "target": str(target),
             "reasoning": str(data.get("reasoning", "")),
             "expected": str(data.get("expected", "")),
-            "confidence": float(data.get("confidence", 0.0) or 0.0),
+            "confidence": confidence,
             "prompt_version": str(data.get("prompt_version", "")),
         }
         if isinstance(data.get("council"), dict):
