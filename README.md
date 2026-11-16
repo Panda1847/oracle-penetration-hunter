@@ -4,9 +4,9 @@
 
 ## Oracle Penetration Hunter
 
-### The hardened mission control plane for authorized security operations.
+### Red-team mission control for operators who need the whole picture.
 
-ORACLE turns scoped security testing into a controlled, observable, replayable operation: deterministic planning, advisory AI, signed engagements, isolated workers, evidence intelligence, live operator control, and executive-grade reporting in one command center.
+**Map the surface. Pressure-test the path. Prove the result.** ORACLE turns authorized security testing into a controlled, observable, replayable operation: deterministic planning, advisory AI, signed engagements, isolated workers, evidence intelligence, live operator control, and executive-grade reporting in one command center.
 
 [![License](https://img.shields.io/badge/license-MIT-1f2937.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab.svg)](https://www.python.org/)
@@ -24,7 +24,9 @@ ORACLE turns scoped security testing into a controlled, observable, replayable o
 
 ## The short version
 
-ORACLE is not a loose collection of scanners. It is a **security operations control plane** that keeps the mission, policy, evidence, operators, workers, and outputs connected from preflight to final report.
+ORACLE is not another loose collection of scanners. It is a **red-team operations control plane** that keeps the mission, policy, attack surface, evidence, operators, workers, and outputs connected from preflight to final report.
+
+It is built for the moment when a terminal full of disconnected commands is no longer enough—when you need to know what was tested, why it was tested, what it exposed, what changed the risk picture, and whether every step stayed inside the rules of engagement.
 
 It gives an operator one place to:
 
@@ -41,6 +43,14 @@ It gives an operator one place to:
 **The AI can advise. The policy engine decides. The operator remains in control.**
 
 ## What ORACLE brings to the fight
+
+### Recon with a mission behind it
+
+Run structured reconnaissance and attack-surface analysis through a repeatable mission loop. Discover hosts and services, correlate observations, rank candidate paths, and carry the result forward as evidence instead of losing it in terminal scrollback.
+
+### The red-team command picture
+
+Track the operation as it unfolds: current phase, target scope, worker health, action stream, approval queue, findings, risk posture, and AI decision context. The dashboard is designed for operators who need signal under pressure—not a pile of disconnected output panes.
 
 ### Mission command, not terminal chaos
 
@@ -71,6 +81,10 @@ ORACLE builds an evidence graph instead of leaving findings as disconnected text
 ### Attack-surface intelligence
 
 The interactive attack graph visualizes hosts, services, findings, weighted relationships, risk-colored nodes, and top paths. Operators can filter node types, pan and zoom, inspect nodes with the keyboard, and move from graph context into the evidence inspector.
+
+### From signal to campaign-grade reporting
+
+Move from initial discovery to analyst-ready output without rebuilding the story by hand. ORACLE carries severity, confidence, affected assets, CVEs, evidence references, analyst status, remediation notes, audit events, and replay context into structured reports and export packages.
 
 ### Worker-aware execution
 
