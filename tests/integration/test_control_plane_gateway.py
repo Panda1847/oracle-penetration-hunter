@@ -203,3 +203,24 @@ def test_control_plane_gateway_token_auth_and_rate_limit(tmp_path):
     for _ in range(24):
         status_codes.append(client.get("/api/dashboard/export").status_code)
     assert 429 in status_codes
+
+
+def test_control_plane_gateway_approval_workflow(tmp_path):
+    mission = Mission(name="cp-approvals", scope=["127.0.0.1"])
+    graph = KnowledgeGraph(mission.name, Storage(tmp_path))
+    event_bus = EventBus()
+    app = create_gateway(mission=mission, graph=graph, event_bus=event_bus)
+    client = app.test_client()
+
+    created = client.post("/api/dashboard/approvals", json={"action": {"tool": "demo", "target": "127.0.0.1"}})
+    assert created.status_code == 201
+    approval_id = created.get_json()["approval_id"]
+    assert client.get("/api/dashboard/approvals").get_json()["items"]
+    assert client.post(f"/api/dashboard/approvals/{approval_id}", json={"decision": "deny"}).status_code == 400
+    decided = client.post(
+        f"/api/dashboard/approvals/{approval_id}",
+        json={"decision": "approve", "actor": "alice"},
+    )
+    assert decided.status_code == 200
+    assert decided.get_json()["status"] == "approved"
+    assert client.get("/api/dashboard/approvals").get_json()["items"] == []

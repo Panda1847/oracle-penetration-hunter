@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 from collections import defaultdict, deque
+from dataclasses import asdict
 import json
 from queue import Empty, Full, Queue
 import threading
@@ -14,6 +15,7 @@ from typing import Any
 from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory, stream_with_context
 
 from api.evidence import evidence_snapshot
+from api.approvals import ApprovalQueue
 from api.missions import mission_snapshot, mission_timeline
 from api.plugins import plugin_snapshot
 from api.reports import report_snapshot
@@ -58,6 +60,7 @@ def create_gateway(
     }
     request_buckets: dict[str, deque[float]] = defaultdict(deque)
     rate_lock = threading.RLock()
+    approvals = approvals or ApprovalQueue()
 
     def _client_addr() -> str:
         forwarded = (request.headers.get("X-Forwarded-For") or "").split(",", 1)[0].strip()
@@ -297,9 +300,52 @@ def create_gateway(
         auth = _require_auth()
         if auth is not None:
             return auth
-        if approvals is None:
-            return jsonify({"items": []})
         return jsonify({"items": approvals.pending()})
+
+    @app.post("/api/dashboard/approvals")
+    def create_approval():
+        auth = _require_auth()
+        if auth is not None:
+            return auth
+        if mission is None:
+            return jsonify({"error": "mission unavailable"}), 503
+        payload = request.get_json() or {}
+        action = payload.get("action")
+        if not isinstance(action, dict) or not action:
+            return jsonify({"error": "action object is required"}), 400
+        item = approvals.submit(
+            requested_by=str(payload.get("requested_by", "operator")),
+            requested_role=str(payload.get("requested_role", "operator")),
+            mission_id=str(getattr(mission, "name", "")),
+            action=action,
+        )
+        if event_bus is not None:
+            event_bus.publish("approval_required", {"type": "approval_required", **asdict(item)}, trace_id="dashboard-approval")
+        return jsonify(asdict(item)), 201
+
+    @app.post("/api/dashboard/approvals/<approval_id>")
+    def decide_approval(approval_id: str):
+        auth = _require_auth()
+        if auth is not None:
+            return auth
+        payload = request.get_json() or {}
+        try:
+            item = approvals.decide(
+                approval_id,
+                actor=str(payload.get("actor", "operator")),
+                decision=str(payload.get("decision", "")),
+                reason=str(payload.get("reason", "")),
+            )
+        except KeyError:
+            return jsonify({"error": "approval not found"}), 404
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 409
+        result = asdict(item)
+        if event_bus is not None:
+            event_bus.publish("approval_decided", {"type": "approval_decided", **result}, trace_id="dashboard-approval")
+        return jsonify(result)
 
     @app.get("/api/dashboard/chat")
     def chat_history():
